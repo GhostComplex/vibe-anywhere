@@ -8,7 +8,10 @@ final class SessionViewModel {
     private(set) var isLoading = false
     private(set) var error: String?
 
-    private let wsService: WebSocketService
+    let wsService: WebSocketService
+
+    /// Currently active chat view model (receives stream events)
+    var activeChatVM: ChatViewModel?
 
     /// Callback when a session is created or tapped (navigate to chat)
     var onSelectSession: ((String) -> Void)?
@@ -42,6 +45,12 @@ final class SessionViewModel {
         onSelectSession?(sessionId)
     }
 
+    func chatViewModel(for sessionId: String) -> ChatViewModel {
+        let vm = ChatViewModel(sessionId: sessionId, wsService: wsService)
+        activeChatVM = vm
+        return vm
+    }
+
     func clearError() {
         error = nil
     }
@@ -49,6 +58,17 @@ final class SessionViewModel {
     // MARK: - Private
 
     private func handleMessage(_ msg: DaemonMessage) {
+        // Forward stream events to active chat
+        switch msg {
+        case .streamText, .streamToolUse, .streamEnd:
+            activeChatVM?.handleDaemonMessage(msg)
+            return
+        case .error:
+            activeChatVM?.handleDaemonMessage(msg)
+        default:
+            break
+        }
+
         isLoading = false
         error = nil
 
@@ -57,15 +77,16 @@ final class SessionViewModel {
             sessions = list
 
         case .sessionCreated(let sessionId, _):
-            // Refresh list then navigate
             refreshSessions()
             onSelectSession?(sessionId)
 
         case .error(let message):
-            error = message
+            if activeChatVM == nil {
+                error = message
+            }
 
         default:
-            break // stream events handled elsewhere
+            break
         }
     }
 }

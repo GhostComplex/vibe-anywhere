@@ -34,6 +34,11 @@ struct ContentView: View {
                     }
                 }
             }
+            .navigationDestination(item: $selectedSessionId) { sessionId in
+                if let vm = sessionVM {
+                    ChatView(viewModel: vm.chatViewModel(for: sessionId))
+                }
+            }
             .sheet(isPresented: $showSettings) {
                 SettingsView(wsService: wsService) {
                     showSettings = false
