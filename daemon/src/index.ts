@@ -1,4 +1,7 @@
 import { loadConfig, rotateToken } from './config.js';
+import { startServer, sendError, type Server } from './server.js';
+import type { ClientMessage } from './types.js';
+import type { WebSocket } from 'ws';
 
 const VERSION = '0.1.0';
 
@@ -41,16 +44,23 @@ function main(): void {
   console.log(`  Allowed dirs: ${config.allowedDirs.join(', ')}`);
   console.log(`  Claude path: ${config.claudePath}`);
 
-  // TODO: start WebSocket server (M1.2)
-  console.log('Server starting...');
+  const server = startServer({
+    config,
+    onMessage: (ws: WebSocket, msg: ClientMessage) => {
+      // TODO: dispatch to session manager (M1.3, M1.4)
+      console.log(`[dispatch] ${msg.type}`);
+      sendError(ws, `Not implemented: ${msg.type}`);
+    },
+  });
 
-  const shutdown = (): void => {
+  const shutdown = async (): Promise<void> => {
     console.log('\nShutting down...');
+    await server.close();
     process.exit(0);
   };
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', () => void shutdown());
+  process.on('SIGINT', () => void shutdown());
 }
 
 main();
