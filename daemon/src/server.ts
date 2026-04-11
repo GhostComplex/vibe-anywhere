@@ -6,6 +6,7 @@ import { isClientMessage, type ClientMessage, type DaemonMessage } from './types
 export interface ServerOptions {
   config: Config;
   onMessage: (ws: WebSocket, msg: ClientMessage) => void;
+  onDisconnect?: (ws: WebSocket) => void;
 }
 
 export interface Server {
@@ -13,7 +14,7 @@ export interface Server {
 }
 
 export function startServer(opts: ServerOptions): Server {
-  const { config, onMessage } = opts;
+  const { config, onMessage, onDisconnect } = opts;
 
   const httpServer = createServer((_req, res) => {
     res.writeHead(404);
@@ -61,6 +62,7 @@ export function startServer(opts: ServerOptions): Server {
 
     ws.on('close', () => {
       console.log(`[ws] Client disconnected: ${addr}`);
+      onDisconnect?.(ws);
     });
 
     ws.on('error', (err) => {

@@ -1,7 +1,6 @@
 import { loadConfig, rotateToken } from './config.js';
-import { startServer, sendError, type Server } from './server.js';
-import type { ClientMessage } from './types.js';
-import type { WebSocket } from 'ws';
+import { startServer, type Server } from './server.js';
+import { SessionManager } from './sessions.js';
 
 const VERSION = '0.1.0';
 
@@ -44,17 +43,17 @@ function main(): void {
   console.log(`  Allowed dirs: ${config.allowedDirs.join(', ')}`);
   console.log(`  Claude path: ${config.claudePath}`);
 
+  const sessions = new SessionManager(config);
+
   const server = startServer({
     config,
-    onMessage: (ws: WebSocket, msg: ClientMessage) => {
-      // TODO: dispatch to session manager (M1.3, M1.4)
-      console.log(`[dispatch] ${msg.type}`);
-      sendError(ws, `Not implemented: ${msg.type}`);
-    },
+    onMessage: (ws, msg) => sessions.handleMessage(ws, msg),
+    onDisconnect: (ws) => sessions.handleDisconnect(ws),
   });
 
   const shutdown = async (): Promise<void> => {
     console.log('\nShutting down...');
+    sessions.destroyAll();
     await server.close();
     process.exit(0);
   };
