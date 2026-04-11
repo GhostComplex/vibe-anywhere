@@ -16,6 +16,9 @@
 		A10007 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20007; };
 		A10008 /* ConnectionConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20008; };
 		A10009 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20009; };
+		A10010 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20010; };
+		A10011 /* NewSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20011; };
+		A10012 /* SessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20012; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +32,9 @@
 		A20007 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		A20008 /* ConnectionConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionConfig.swift; sourceTree = "<group>"; };
 		A20009 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A20010 /* SessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListView.swift; sourceTree = "<group>"; };
+		A20011 /* NewSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewSessionView.swift; sourceTree = "<group>"; };
+		A20012 /* SessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +65,7 @@
 				A40002 /* Models */,
 				A40003 /* Services */,
 				A40004 /* Views */,
+				A40006 /* ViewModels */,
 			);
 			path = VibeAnywhere;
 			sourceTree = "<group>";
@@ -86,8 +93,18 @@
 			isa = PBXGroup;
 			children = (
 				A20009 /* SettingsView.swift */,
+				A20010 /* SessionListView.swift */,
+				A20011 /* NewSessionView.swift */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		A40006 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				A20012 /* SessionViewModel.swift */,
+			);
+			path = ViewModels;
 			sourceTree = "<group>";
 		};
 		A40005 /* Products */ = {
@@ -175,6 +192,9 @@
 				A10007 /* KeychainService.swift in Sources */,
 				A10008 /* ConnectionConfig.swift in Sources */,
 				A10009 /* SettingsView.swift in Sources */,
+				A10010 /* SessionListView.swift in Sources */,
+				A10011 /* NewSessionView.swift in Sources */,
+				A10012 /* SessionViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
