@@ -1,0 +1,147 @@
+import Foundation
+
+// MARK: - Client → Daemon
+
+enum ClientMessage: Encodable {
+    case sessionCreate(cwd: String)
+    case sessionList
+    case sessionResume(sessionId: String)
+    case sessionMessage(sessionId: String, content: String)
+    case sessionDestroy(sessionId: String)
+
+    private enum CodingKeys: String, CodingKey {
+        case type, cwd, sessionId, content
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .sessionCreate(let cwd):
+            try container.encode("session/create", forKey: .type)
+            try container.encode(cwd, forKey: .cwd)
+        case .sessionList:
+            try container.encode("session/list", forKey: .type)
+        case .sessionResume(let sessionId):
+            try container.encode("session/resume", forKey: .type)
+            try container.encode(sessionId, forKey: .sessionId)
+        case .sessionMessage(let sessionId, let content):
+            try container.encode("session/message", forKey: .type)
+            try container.encode(sessionId, forKey: .sessionId)
+            try container.encode(content, forKey: .content)
+        case .sessionDestroy(let sessionId):
+            try container.encode("session/destroy", forKey: .type)
+            try container.encode(sessionId, forKey: .sessionId)
+        }
+    }
+}
+
+// MARK: - Daemon → Client
+
+enum DaemonMessage {
+    case sessionCreated(sessionId: String, cwd: String)
+    case sessionList(sessions: [SessionInfo])
+    case streamText(sessionId: String, content: String)
+    case streamToolUse(sessionId: String, tool: String, input: [String: AnyCodable])
+    case streamEnd(sessionId: String, result: String)
+    case error(message: String)
+}
+
+extension DaemonMessage: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case type, sessionId, cwd, sessions, content, tool, input, result, message
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+
+        switch type {
+        case "session/created":
+            let sessionId = try container.decode(String.self, forKey: .sessionId)
+            let cwd = try container.decode(String.self, forKey: .cwd)
+            self = .sessionCreated(sessionId: sessionId, cwd: cwd)
+        case "session/list":
+            let sessions = try container.decode([SessionInfo].self, forKey: .sessions)
+            self = .sessionList(sessions: sessions)
+        case "stream/text":
+            let sessionId = try container.decode(String.self, forKey: .sessionId)
+            let content = try container.decode(String.self, forKey: .content)
+            self = .streamText(sessionId: sessionId, content: content)
+        case "stream/tool_use":
+            let sessionId = try container.decode(String.self, forKey: .sessionId)
+            let tool = try container.decode(String.self, forKey: .tool)
+            let input = try container.decodeIfPresent([String: AnyCodable].self, forKey: .input) ?? [:]
+            self = .streamToolUse(sessionId: sessionId, tool: tool, input: input)
+        case "stream/end":
+            let sessionId = try container.decode(String.self, forKey: .sessionId)
+            let result = try container.decode(String.self, forKey: .result)
+            self = .streamEnd(sessionId: sessionId, result: result)
+        case "error":
+            let message = try container.decode(String.self, forKey: .message)
+            self = .error(message: message)
+        default:
+            throw DecodingError.dataCorruptedError(
+                forKey: .type, in: container,
+                debugDescription: "Unknown message type: \(type)"
+            )
+        }
+    }
+}
+
+// MARK: - AnyCodable (lightweight type-erased wrapper)
+
+struct AnyCodable: Codable, @unchecked Sendable {
+    let value: Any
+
+    init(_ value: Any) {
+        self.value = value
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            value = NSNull()
+        } else if let bool = try? container.decode(Bool.self) {
+            value = bool
+        } else if let int = try? container.decode(Int.self) {
+            value = int
+        } else if let double = try? container.decode(Double.self) {
+            value = double
+        } else if let string = try? container.decode(String.self) {
+            value = string
+        } else if let array = try? container.decode([AnyCodable].self) {
+            value = array.map(\.value)
+        } else if let dict = try? container.decode([String: AnyCodable].self) {
+            value = dict.mapValues(\.value)
+        } else {
+            throw DecodingError.dataCorruptedError(
+                in: container, debugDescription: "Unsupported type"
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch value {
+        case is NSNull:
+            try container.encodeNil()
+        case let bool as Bool:
+            try container.encode(bool)
+        case let int as Int:
+            try container.encode(int)
+        case let double as Double:
+            try container.encode(double)
+        case let string as String:
+            try container.encode(string)
+        case let array as [Any]:
+            try container.encode(array.map { AnyCodable($0) })
+        case let dict as [String: Any]:
+            try container.encode(dict.mapValues { AnyCodable($0) })
+        default:
+            throw EncodingError.invalidValue(
+                value,
+                .init(codingPath: encoder.codingPath, debugDescription: "Unsupported type")
+            )
+        }
+    }
+}
