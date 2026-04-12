@@ -21,7 +21,7 @@ export interface Config {
 const CONFIG_DIR = path.join(os.homedir(), '.vibe-anywhere');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.yaml');
 
-function expandTilde(p: string): string {
+export function expandTilde(p: string): string {
   if (p.startsWith('~/') || p === '~') {
     return path.join(os.homedir(), p.slice(1));
   }

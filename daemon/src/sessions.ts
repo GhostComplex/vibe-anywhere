@@ -1,11 +1,10 @@
 import path from 'node:path';
-import os from 'node:os';
 import crypto from 'node:crypto';
 import { WebSocket } from 'ws';
 import { AcpBridge, type AcpEvent } from './acp.js';
 import { AcpManager, type AcpManagerEvent } from './acp-manager.js';
 import { send, sendError } from './server.js';
-import type { Config } from './config.js';
+import { type Config, expandTilde } from './config.js';
 import type { ClientMessage } from './types.js';
 
 export interface SessionInfo {
@@ -64,13 +63,19 @@ export class SessionManager {
       case 'session/resume':
         this.resumeSession(ws, msg.sessionId);
         break;
-      case 'session/message':
+      case 'session/message': {
+        const trimmed = msg.content.trim();
+        if (!trimmed) {
+          sendError(ws, 'Message content cannot be empty');
+          break;
+        }
         if (this.isV2Session(msg.sessionId)) {
-          void this.sendMessageV2(ws, msg.sessionId, msg.content);
+          void this.sendMessageV2(ws, msg.sessionId, trimmed);
         } else {
-          this.sendMessageV1(ws, msg.sessionId, msg.content);
+          this.sendMessageV1(ws, msg.sessionId, trimmed);
         }
         break;
+      }
       case 'session/destroy':
         this.destroySession(ws, msg.sessionId);
         break;
@@ -450,10 +455,7 @@ export class SessionManager {
   // ── Helpers ──
 
   private resolveCwd(cwd: string): string | null {
-    const expanded = cwd.startsWith('~/') || cwd === '~'
-      ? path.join(os.homedir(), cwd.slice(1))
-      : cwd;
-    const resolved = path.resolve(expanded);
+    const resolved = path.resolve(expandTilde(cwd));
 
     if (!this.isAllowedDir(resolved)) return null;
     return resolved;

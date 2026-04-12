@@ -118,7 +118,12 @@ final class WebSocketService {
             return
         }
 
-        print("[ws] Decoded message: \(daemonMessage)")
+        #if DEBUG
+        // Skip logging high-frequency stream events
+        if case .streamText = daemonMessage {} else {
+            print("[ws] Received: \(daemonMessage)")
+        }
+        #endif
         onMessage?(daemonMessage)
     }
 
