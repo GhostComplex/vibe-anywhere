@@ -65,11 +65,7 @@ Light, warm, clean. Xora-inspired AI chat aesthetic. Large logo empty state, qui
 
 ## Mockups
 
-| Empty State | Chat Active | Sessions | Settings |
-|-------------|-------------|----------|----------|
-| ![Empty](mockups/chat-empty.png) | ![Chat](mockups/chat-active.png) | ![Sessions](mockups/sessions.png) | ![Settings](mockups/settings.png) |
-
-HTML mockup source in `docs/prd/mockups/*.html`.
+TODO: Replace with proper Figma exports.
 
 ## Implementation
 
