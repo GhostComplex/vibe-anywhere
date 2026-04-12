@@ -75,44 +75,20 @@ reconnect_window_seconds: 300
 
 ---
 
-### v0.2 — Tiny Agent Layer
+### v0.2 — ACP Runtime Migration
 
-Add an optional prompt middleware that wraps user messages before forwarding to Claude. All "intelligence" lives in editable markdown files — code stays pure plumbing.
+Replace the stream-json bridge with [acpx](https://github.com/anthropics/acpx) — a headless ACP (Agent Client Protocol) client. vibe-anywhere stays a **lightweight mobile client for Claude Code**, not a standalone agent framework.
 
-#### Prompt Architecture (3-layer)
+See `docs/prd/PRD-v0.2-acpx.md` for full design.
 
-```
-~/.vibe-anywhere/
-├── config.yaml
-├── soul.md              # Identity & red lines — user-editable only, AI read-only
-├── agent.md             # Behavior instructions — user tells AI to edit this
-├── memory.md            # Persistent memory — AI reads/writes across sessions
-├── skills/
-│   ├── code-review/
-│   │   └── SKILL.md
-│   └── ...
-└── sessions/
-```
+#### Key Changes
 
-| File | Who reads | Who writes | Purpose |
-|------|-----------|------------|---------|
-| `soul.md` | AI + user | User only | Core identity, personality, boundaries |
-| `agent.md` | AI + user | User instructs AI to edit | Behavioral prompt, self-iterable |
-| `memory.md` | AI + user | AI (on user's instruction) | Long-term context across sessions |
-| `skills/*.md` | AI | User | Task-specific instructions, loaded on demand |
-
-#### How It Works
-
-1. **System prompt assembly** — On each `session/message`, daemon reads `soul.md` + `agent.md` + `memory.md` + relevant skill files, concatenates them as system context, prepends to user message.
-2. **File write exposure** — Claude's allowed tools include file write, scoped to `agent.md` and `memory.md` only. User says "remember X" → AI writes to `memory.md`. User says "change your prompt to Y" → AI edits `agent.md`.
-3. **Hot reload** — Daemon watches `~/.vibe-anywhere/` with `fs.watch()` (or `FSEvents` on macOS). File changes take effect on the next message — no restart needed.
-4. **Mode toggle** — Client can switch between direct mode (no prompt injection) and agent mode per session.
-
-#### Non-Goals for v0.2
-
-- AI does NOT self-initiate prompt changes — only edits when user instructs
-- No scheduled/cron tasks
-- No multi-agent orchestration
+1. **ACP protocol** — Bidirectional JSON-RPC via `@agentclientprotocol/sdk`
+2. **Session resume** — Reconnect without losing context
+3. **Cancel** — Stop a running turn from the phone
+4. **Permission approval** — Approve/deny file writes and commands from iOS
+5. **Structured events** — Tool call streaming, token usage
+6. **Runtime controls** — Mode/model switching mid-session
 
 ---
 
@@ -181,7 +157,7 @@ Add an optional prompt middleware that wraps user messages before forwarding to 
 1. **Network** — Tailscale provides encrypted tunnel with device-level auth. No public internet exposure.
 2. **Auth** — Bearer token validated on WebSocket upgrade. Single token in config (MVP). Future: per-device tokens.
 3. **Directory sandbox** — Daemon only allows `cwd` within configured directory allowlist.
-4. **Agent file scope** — In v0.2, AI can only write to `agent.md` and `memory.md`. `soul.md` and `config.yaml` are read-only to AI.
+4. **No agent layer** — vibe-anywhere is a transparent client; no prompt injection or middleware.
 
 ## Open Questions
 

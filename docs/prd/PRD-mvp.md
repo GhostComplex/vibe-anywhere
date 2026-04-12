@@ -197,31 +197,13 @@ The WebSocket message protocol is defined in both TypeScript (daemon types) and 
 5. Token sent as `Authorization: Bearer <token>` on WebSocket upgrade
 6. Token can be rotated via `vibe-anywhere --rotate-token`
 
-## v0.2 Roadmap (Agent Layer)
+## v0.2 Roadmap (ACP Runtime Migration)
 
-> Not in MVP scope. Documented here for architectural awareness.
+> Not in MVP scope. See `docs/prd/PRD-v0.2-acpx.md` for full design.
 
-v0.2 adds a thin agent layer between the user and Claude Code:
+v0.2 replaces the stream-json bridge with acpx (ACP protocol). vibe-anywhere stays a **lightweight mobile client** — no agent layer, no prompt injection.
 
-```
-~/.vibe-anywhere/
-├── config.yaml
-├── soul.md          # Identity and red lines (user-only edit)
-├── agent.md         # Behavior instructions (AI can edit when instructed)
-├── memory.md        # Long-term memory (AI reads/writes freely)
-└── skills/
-    └── <skill-name>/
-        └── SKILL.md
-```
-
-- **soul.md** — Read-only for AI. Defines identity, constraints, tone.
-- **agent.md** — AI can edit when user instructs it to. Self-iterating prompt.
-- **memory.md** — AI reads/writes across sessions. Persistent context.
-- **Hot reload** — Daemon watches these files via `FSEvents` (macOS) / `fs.watch` (Node). Changes take effect on the next message without restart.
-- **Skill loading** — Skills loaded on demand, same format as OpenClaw skills.
-- **Prompt injection** — `buildSystemPrompt()` concatenates soul + agent + memory + active skills → prepended to ACP session start.
-
-The daemon code in v0.1 should include a `buildSystemPrompt()` stub that returns empty string, making v0.2 a drop-in enhancement.
+Key additions: session resume, cancel, permission approval, structured tool call events, runtime mode/model switching.
 
 ## Success Criteria
 

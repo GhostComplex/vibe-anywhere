@@ -21,9 +21,9 @@ Replace the current `claude --print --output-format stream-json` bridge with [ac
 
 ## Non-Goals (v0.2)
 
-- Agent/buddy orchestrator layer (deferred to v0.3+)
-- Soul/agent/memory prompt assembly (old #12, deferred)
-- Skills system (old #15, deferred)
+- ~~Agent/buddy orchestrator layer~~ — **removed from roadmap entirely**. vibe-anywhere is a lightweight mobile client for Claude Code, not a standalone agent framework.
+- ~~Soul/agent/memory prompt assembly~~ — **removed** (old #12, closed)
+- ~~Skills system~~ — **removed** (old #15, closed)
 - Network relay / Tailscale integration
 - Multi-user / auth per user
 - Web client
