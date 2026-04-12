@@ -76,6 +76,8 @@ enum DaemonMessage {
     case eventTurnEnd(sessionId: String, stopReason: String)
     case eventError(sessionId: String, message: String)
     case eventSessionInfo(sessionId: String, agent: String, models: [String]?, modes: [String]?)
+    // Unknown — forward compat
+    case unknown(type: String)
 }
 
 struct PermissionOption: Codable, Sendable, Identifiable {
@@ -167,10 +169,7 @@ extension DaemonMessage: Decodable {
             let modes = try container.decodeIfPresent([String].self, forKey: .modes)
             self = .eventSessionInfo(sessionId: sessionId, agent: agent, models: models, modes: modes)
         default:
-            throw DecodingError.dataCorruptedError(
-                forKey: .type, in: container,
-                debugDescription: "Unknown message type: \(type)"
-            )
+            self = .unknown(type: type)
         }
     }
 }

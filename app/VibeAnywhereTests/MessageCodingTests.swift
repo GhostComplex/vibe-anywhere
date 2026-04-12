@@ -97,9 +97,14 @@ final class MessageCodingTests: XCTestCase {
         }
     }
 
-    func testDecodeUnknownTypeThrows() {
-        let json = #"{"type":"unknown/type"}"#
-        XCTAssertThrowsError(try decoder.decode(DaemonMessage.self, from: json.data(using: .utf8)!))
+    func testDecodeUnknownTypeReturnsUnknown() throws {
+        let json = #"{"type":"future/new_event"}"#
+        let msg = try decoder.decode(DaemonMessage.self, from: json.data(using: .utf8)!)
+        if case .unknown(let type) = msg {
+            XCTAssertEqual(type, "future/new_event")
+        } else {
+            XCTFail("Expected unknown")
+        }
     }
 
     // MARK: - v2 messages
