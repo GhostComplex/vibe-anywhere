@@ -10,96 +10,94 @@ struct MessageBubble: View {
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 8) {
                 // Text content
                 if !message.text.isEmpty {
-                    Text(message.text)
-                        .textSelection(.enabled)
+                    textContent
                 }
 
                 // Streaming indicator
                 if message.isStreaming && message.text.isEmpty {
-                    HStack(spacing: 4) {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text("Thinking…")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    streamingIndicator
                 }
 
                 // Tool uses
                 ForEach(message.toolUses) { tool in
-                    ToolUseCard(tool: tool)
-                }
-
-                // Streaming cursor
-                if message.isStreaming && !message.text.isEmpty {
-                    Circle()
-                        .fill(.primary)
-                        .frame(width: 6, height: 6)
-                        .opacity(0.5)
+                    toolCard(tool)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(bubbleBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
 
             if message.role == .assistant { Spacer(minLength: 60) }
         }
     }
 
-    private var bubbleBackground: some ShapeStyle {
-        message.role == .user
-            ? AnyShapeStyle(.blue)
-            : AnyShapeStyle(.secondary.opacity(0.15))
+    // MARK: - Text
+
+    @ViewBuilder
+    private var textContent: some View {
+        if message.role == .user {
+            Text(message.text)
+                .textSelection(.enabled)
+                .foregroundStyle(Theme.textPrimary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Theme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.radiusMd)
+                        .stroke(Theme.border, lineWidth: 1)
+                )
+        } else {
+            // Assistant: plain text, no background
+            Text(message.text)
+                .textSelection(.enabled)
+                .foregroundStyle(Theme.textPrimary)
+        }
     }
-}
 
-// MARK: - Tool Use Card
+    // MARK: - Streaming
 
-struct ToolUseCard: View {
-    let tool: ToolUseInfo
-    @State private var isExpanded = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isExpanded.toggle()
-                }
-            } label: {
-                HStack {
-                    Image(systemName: "wrench.and.screwdriver")
-                        .font(.caption)
-                    Text(tool.tool)
-                        .font(.caption.bold())
-                    Spacer()
-                    Text(tool.status)
-                        .font(.caption2)
-                        .foregroundStyle(statusColor)
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.caption2)
-                }
-                .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-
-            if isExpanded && !tool.input.isEmpty {
-                Text(tool.input)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+    private var streamingIndicator: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .fill(Theme.textTertiary)
+                    .frame(width: 5, height: 5)
+                    .opacity(0.4)
             }
         }
-        .padding(8)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 4)
     }
 
-    private var statusColor: Color {
-        switch tool.status {
-        case "completed": return .green
-        case "error": return .red
-        default: return .secondary
+    // MARK: - Tool Card
+
+    private func toolCard(_ tool: ToolUseInfo) -> some View {
+        HStack(spacing: 8) {
+            // Status dot
+            Circle()
+                .fill(statusColor(tool.status))
+                .frame(width: 6, height: 6)
+
+            Text(tool.tool)
+                .font(.caption.monospaced())
+                .foregroundStyle(Theme.textPrimary)
+
+            if !tool.status.isEmpty && tool.status != "running" {
+                Text(tool.status)
+                    .font(.caption2)
+                    .foregroundStyle(Theme.textTertiary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Theme.surface)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Theme.border, lineWidth: 1))
+    }
+
+    private func statusColor(_ status: String) -> Color {
+        switch status.lowercased() {
+        case "done", "completed", "success": return Theme.accent
+        case "running", "working": return Theme.accentWarm
+        case "error", "failed": return .red
+        default: return Theme.textTertiary
         }
     }
 }

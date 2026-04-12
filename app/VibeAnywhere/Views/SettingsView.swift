@@ -27,7 +27,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Server") {
+                Section {
                     TextField("Host or IP", text: $host)
                         .textContentType(.URL)
                         .autocorrectionDisabled()
@@ -35,9 +35,11 @@ struct SettingsView: View {
 
                     TextField("Port", text: $portText)
                         .keyboardType(.numberPad)
+                } header: {
+                    Text("CONNECTION")
                 }
 
-                Section("Authentication") {
+                Section {
                     HStack {
                         if showToken {
                             TextField("Bearer Token", text: $token)
@@ -51,12 +53,17 @@ struct SettingsView: View {
                             showToken.toggle()
                         } label: {
                             Image(systemName: showToken ? "eye.slash" : "eye")
+                                .foregroundStyle(Theme.textSecondary)
                         }
                     }
+                } header: {
+                    Text("AUTHENTICATION")
                 }
 
                 Section {
                     connectionStatus
+                } header: {
+                    Text("STATUS")
                 }
 
                 if let saveError {
@@ -95,8 +102,8 @@ struct SettingsView: View {
 
     private var statusColor: Color {
         switch wsService.state {
-        case .connected: .green
-        case .connecting, .reconnecting: .orange
+        case .connected: Theme.accent
+        case .connecting, .reconnecting: Theme.accentWarm
         case .disconnected: .red
         }
     }

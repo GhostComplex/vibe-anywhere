@@ -24,6 +24,8 @@
 		A10015 /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20015; };
 		A10018 /* PermissionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20019; };
 		A10019 /* SessionSettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20020; };
+		A10021 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20021; };
+		A10022 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20022; };
 		A10016 /* ConnectionConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20016; };
 		A10017 /* MessageCodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20017; };
 /* End PBXBuildFile section */
@@ -57,6 +59,8 @@
 		A20015 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
 		A20019 /* PermissionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionViews.swift; sourceTree = "<group>"; };
 		A20020 /* SessionSettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSettingsSheet.swift; sourceTree = "<group>"; };
+		A20021 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		A20022 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		A20016 /* ConnectionConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionConfigTests.swift; sourceTree = "<group>"; };
 		A20017 /* MessageCodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageCodingTests.swift; sourceTree = "<group>"; };
 		A20018 /* VibeAnywhereTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VibeAnywhereTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -94,6 +98,7 @@
 			children = (
 				A20001 /* VibeAnywhereApp.swift */,
 				A20002 /* ContentView.swift */,
+				A20021 /* Theme.swift */,
 				A20003 /* Assets.xcassets */,
 				A40002 /* Models */,
 				A40003 /* Services */,
@@ -132,6 +137,7 @@
 				A20015 /* MessageBubble.swift */,
 				A20019 /* PermissionViews.swift */,
 				A20020 /* SessionSettingsSheet.swift */,
+				A20022 /* EmptyStateView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -278,6 +284,8 @@
 				A10015 /* MessageBubble.swift in Sources */,
 				A10018 /* PermissionViews.swift in Sources */,
 				A10019 /* SessionSettingsSheet.swift in Sources */,
+				A10021 /* Theme.swift in Sources */,
+				A10022 /* EmptyStateView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -5,31 +5,14 @@ struct SessionListView: View {
     @State private var showNewSession = false
 
     var body: some View {
-        Group {
-            if viewModel.sessions.isEmpty && !viewModel.isLoading {
-                ContentUnavailableView(
-                    "No Sessions",
-                    systemImage: "terminal",
-                    description: Text("Create a new session to start coding.")
-                )
-            } else {
-                List {
-                    ForEach(viewModel.sessions) { session in
-                        SessionRow(session: session)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                viewModel.resumeSession(session.sessionId)
-                            }
-                    }
-                    .onDelete { indexSet in
-                        for index in indexSet {
-                            let session = viewModel.sessions[index]
-                            viewModel.destroySession(session.sessionId)
-                        }
-                    }
-                }
-                .refreshable {
-                    viewModel.refreshSessions()
+        ZStack {
+            Theme.background.ignoresSafeArea()
+
+            Group {
+                if viewModel.sessions.isEmpty && !viewModel.isLoading {
+                    emptyState
+                } else {
+                    sessionsList
                 }
             }
         }
@@ -44,6 +27,11 @@ struct SessionListView: View {
                     showNewSession = true
                 } label: {
                     Image(systemName: "plus")
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(Theme.surface)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Theme.border, lineWidth: 1))
                 }
             }
         }
@@ -66,36 +54,98 @@ struct SessionListView: View {
             }
         }
     }
-}
 
-// MARK: - Session Row
+    // MARK: - Empty
 
-private struct SessionRow: View {
-    let session: SessionInfo
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(directoryName)
-                    .font(.headline)
-                Text(session.cwd)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            Spacer()
-            Text(session.agentDisplayName)
-                .font(.caption2.bold())
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(.secondary.opacity(0.15))
-                .clipShape(Capsule())
-        }
-        .padding(.vertical, 4)
+    private var emptyState: some View {
+        ContentUnavailableView(
+            "No Sessions",
+            systemImage: "terminal",
+            description: Text("Create a new session to start coding.")
+        )
     }
 
-    private var directoryName: String {
-        session.cwd.components(separatedBy: "/").last ?? session.cwd
+    // MARK: - List
+
+    private var sessionsList: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                sectionHeader("ACTIVE")
+
+                ForEach(viewModel.sessions) { session in
+                    sessionCard(session)
+                        .padding(.horizontal, Theme.paddingMd)
+                        .padding(.bottom, Theme.paddingSm)
+                }
+            }
+            .padding(.top, Theme.paddingSm)
+        }
+        .refreshable {
+            viewModel.refreshSessions()
+        }
+    }
+
+    // MARK: - Components
+
+    private func sectionHeader(_ title: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.caption.bold())
+                .foregroundStyle(Theme.textTertiary)
+                .tracking(1)
+            Spacer()
+        }
+        .padding(.horizontal, Theme.paddingMd + 4)
+        .padding(.vertical, Theme.paddingSm)
+    }
+
+    private func sessionCard(_ session: SessionInfo) -> some View {
+        Button {
+            viewModel.resumeSession(session.sessionId)
+        } label: {
+            HStack(spacing: 12) {
+                // Folder icon
+                Image(systemName: "folder.fill")
+                    .font(.title3)
+                    .foregroundStyle(Theme.textTertiary)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(directoryName(session.cwd))
+                        .font(.headline)
+                        .foregroundStyle(Theme.textPrimary)
+
+                    Text(session.cwd)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(Theme.textTertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                Spacer()
+
+                // Agent badge
+                Text(session.agentDisplayName)
+                    .font(.caption2.bold())
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Theme.background)
+                    .clipShape(Capsule())
+            }
+            .padding(Theme.paddingMd)
+            .cardStyle()
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive) {
+                viewModel.destroySession(session.sessionId)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private func directoryName(_ cwd: String) -> String {
+        cwd.components(separatedBy: "/").last ?? cwd
     }
 }
