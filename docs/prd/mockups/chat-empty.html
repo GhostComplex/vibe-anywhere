@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #F2F1EE; color: #1A1A1A; font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .phone { width: 393px; height: 852px; background: #F2F1EE; position: relative; overflow: hidden; }
+
+  /* Status bar */
+  .status-bar { height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 14px 24px 0; font-size: 15px; font-weight: 600; color: #1A1A1A; }
+  .status-bar .time { font-size: 16px; font-weight: 700; }
+
+  /* Nav bar */
+  .nav-bar { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+  .nav-left { display: flex; align-items: center; gap: 8px; }
+  .nav-menu { font-size: 18px; color: #666; cursor: pointer; }
+  .nav-title { font-size: 16px; font-weight: 600; color: #1A1A1A; display: flex; align-items: center; gap: 4px; }
+  .nav-chevron { font-size: 10px; color: #999; }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .nav-icon { font-size: 16px; color: #888; }
+
+  /* Empty state */
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 40px 40px; }
+  .logo-container { width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; margin-bottom: 32px; }
+  .logo-svg { width: 100px; height: 100px; }
+  .welcome-text { font-size: 22px; font-weight: 500; color: #1A1A1A; text-align: center; margin-bottom: 24px; letter-spacing: -0.3px; }
+
+  /* Quick action chips */
+  .chips-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 320px; }
+  .chip { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: #FFFFFF; border: 1px solid #E5E4E0; border-radius: 20px; font-size: 13px; font-weight: 450; color: #444; cursor: pointer; }
+  .chip-icon { font-size: 14px; }
+  .chip:hover { background: #F8F8F6; }
+
+  /* Input bar */
+  .input-bar { position: absolute; bottom: 40px; left: 16px; right: 16px; display: flex; align-items: center; gap: 0; background: #FFFFFF; border: 1px solid #E5E4E0; border-radius: 28px; padding: 6px 6px 6px 18px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
+  .input-field { flex: 1; font-size: 15px; color: #999; border: none; background: transparent; outline: none; }
+  .input-actions { display: flex; align-items: center; gap: 4px; }
+  .input-btn { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 16px; color: #888; cursor: pointer; }
+  .mic-btn { background: #1A1A1A; color: #FFFFFF; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="status-bar"><span class="time">9:41</span><span style="font-size:13px; color:#666">●●● ▁▃▅▇ 🔋</span></div>
+
+  <div class="nav-bar">
+    <div class="nav-left"><span class="nav-menu">☰</span></div>
+    <div class="nav-title">Vibe 0.2 <span class="nav-chevron">▾</span></div>
+    <div class="nav-right"><span class="nav-icon">⊕</span> <span class="nav-icon">⊘</span> <span class="nav-icon">•••</span></div>
+  </div>
+
+  <div class="empty-state">
+    <div class="logo-container">
+      <svg class="logo-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 15 C65 25, 80 40, 85 50 C80 60, 65 75, 50 85 C35 75, 20 60, 15 50 C20 40, 35 25, 50 15Z" stroke="#1A1A1A" stroke-width="1.5" fill="none" opacity="0.6"/>
+        <path d="M50 15 C65 25, 80 40, 85 50 C80 60, 65 75, 50 85 C35 75, 20 60, 15 50 C20 40, 35 25, 50 15Z" stroke="#1A1A1A" stroke-width="1.5" fill="none" opacity="0.3" transform="rotate(60 50 50)"/>
+        <path d="M50 15 C65 25, 80 40, 85 50 C80 60, 65 75, 50 85 C35 75, 20 60, 15 50 C20 40, 35 25, 50 15Z" stroke="#1A1A1A" stroke-width="1.5" fill="none" opacity="0.15" transform="rotate(120 50 50)"/>
+      </svg>
+    </div>
+    <div class="welcome-text">What can I help you today?</div>
+    <div class="chips-container">
+      <div class="chip"><span class="chip-icon">💬</span> Ask Anything</div>
+      <div class="chip"><span class="chip-icon">🖼</span> Create Image</div>
+      <div class="chip"><span class="chip-icon">📅</span> Schedule</div>
+      <div class="chip"><span class="chip-icon">💻</span> Create Code</div>
+      <div class="chip"><span class="chip-icon">📊</span> Analytics</div>
+    </div>
+  </div>
+
+  <div class="input-bar">
+    <span class="input-field">Ask anything...</span>
+    <div class="input-actions">
+      <div class="input-btn">＋</div>
+      <div class="input-btn">☰</div>
+      <div class="mic-btn">🎙</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
