@@ -6,6 +6,12 @@
 **Depends on:** v0.1.0 (MVP)
 **Issue:** #52
 
+## Mockups
+
+| Chat | Sessions | Settings |
+|------|----------|----------|
+| ![Chat](mockups/chat-dark.png) | ![Sessions](mockups/sessions-dark.png) | ![Settings](mockups/settings-dark.png) |
+
 ## Problem
 
 The current iOS UI is a plain white iMessage clone — blue user bubbles, gray assistant bubbles, white background, no personality. For an app that controls a coding agent, it looks generic and uninspired.
