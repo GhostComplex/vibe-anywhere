@@ -112,9 +112,15 @@ struct SettingsView: View {
 
     private func saveAndConnect() {
         do {
-            try KeychainService.saveConfig(config)
+            // Trim whitespace before saving — prevents invisible newlines from clipboard paste
+            let trimmed = ConnectionConfig(
+                host: host.trimmingCharacters(in: .whitespacesAndNewlines),
+                port: Int(portText) ?? 7842,
+                token: token.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            try KeychainService.saveConfig(trimmed)
             saveError = nil
-            wsService.connect(config: config)
+            wsService.connect(config: trimmed)
             onDismiss()
         } catch {
             saveError = error.localizedDescription
