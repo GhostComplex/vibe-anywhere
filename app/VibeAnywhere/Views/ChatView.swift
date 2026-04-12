@@ -3,6 +3,7 @@ import SwiftUI
 struct ChatView: View {
     let viewModel: ChatViewModel
     @State private var inputText = ""
+    @State private var showSettings = false
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
@@ -76,16 +77,28 @@ struct ChatView: View {
         .navigationTitle(viewModel.sessionAgent.capitalized)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if !viewModel.permissionHistory.isEmpty {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        PermissionHistoryView(history: viewModel.permissionHistory)
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack(spacing: 12) {
+                    if !viewModel.permissionHistory.isEmpty {
+                        NavigationLink {
+                            PermissionHistoryView(history: viewModel.permissionHistory)
+                        } label: {
+                            Image(systemName: "lock.shield")
+                                .font(.caption)
+                        }
+                    }
+                    Button {
+                        showSettings = true
                     } label: {
-                        Image(systemName: "lock.shield")
+                        Image(systemName: "gearshape")
                             .font(.caption)
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            SessionSettingsSheet(viewModel: viewModel)
+                .presentationDetents([.medium])
         }
         .overlay(alignment: .bottom) {
             if let request = viewModel.pendingPermission {
