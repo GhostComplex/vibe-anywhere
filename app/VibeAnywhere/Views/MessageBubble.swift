@@ -73,6 +73,9 @@ struct ToolUseCard: View {
                     Text(tool.tool)
                         .font(.caption.bold())
                     Spacer()
+                    Text(tool.status)
+                        .font(.caption2)
+                        .foregroundStyle(statusColor)
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.caption2)
                 }
@@ -80,7 +83,7 @@ struct ToolUseCard: View {
             }
             .buttonStyle(.plain)
 
-            if isExpanded {
+            if isExpanded && !tool.input.isEmpty {
                 Text(tool.input)
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.secondary)
@@ -90,5 +93,13 @@ struct ToolUseCard: View {
         .padding(8)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var statusColor: Color {
+        switch tool.status {
+        case "completed": return .green
+        case "error": return .red
+        default: return .secondary
+        }
     }
 }

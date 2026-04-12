@@ -74,14 +74,23 @@ private struct SessionRow: View {
     let session: SessionInfo
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(directoryName)
-                .font(.headline)
-            Text(session.cwd)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(directoryName)
+                    .font(.headline)
+                Text(session.cwd)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer()
+            Text(session.agentDisplayName)
+                .font(.caption2.bold())
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.secondary.opacity(0.15))
+                .clipShape(Capsule())
         }
         .padding(.vertical, 4)
     }
