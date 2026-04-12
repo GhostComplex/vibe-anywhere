@@ -23,6 +23,22 @@ describe('isClientMessage', () => {
     assert.ok(isClientMessage({ type: 'session/destroy', sessionId: 'abc' }));
   });
 
+  it('accepts session/cancel', () => {
+    assert.ok(isClientMessage({ type: 'session/cancel', sessionId: 'abc' }));
+  });
+
+  it('accepts session/set-mode', () => {
+    assert.ok(isClientMessage({ type: 'session/set-mode', sessionId: 'abc', mode: 'plan' }));
+  });
+
+  it('accepts session/set-model', () => {
+    assert.ok(isClientMessage({ type: 'session/set-model', sessionId: 'abc', model: 'opus' }));
+  });
+
+  it('accepts permission/respond', () => {
+    assert.ok(isClientMessage({ type: 'permission/respond', sessionId: 'abc', requestId: 'r1', optionId: 'o1' }));
+  });
+
   it('rejects unknown type', () => {
     assert.ok(!isClientMessage({ type: 'unknown' }));
   });

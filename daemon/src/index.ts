@@ -42,12 +42,15 @@ function main(): void {
   console.log(`  Bind: ${config.bind}`);
   console.log(`  Allowed dirs: ${config.allowedDirs.join(', ')}`);
   console.log(`  Claude path: ${config.claudePath}`);
+  console.log(`  Default agent: ${config.defaultAgent}`);
+  console.log(`  ACP path: ${config.acpx.path}`);
+  console.log(`  Permission mode: ${config.acpx.permissionMode}`);
 
   const sessions = new SessionManager(config);
 
   const server = startServer({
     config,
-    onMessage: (ws, msg) => sessions.handleMessage(ws, msg),
+    onMessage: (ws, msg, protocolVersion) => sessions.handleMessage(ws, msg, protocolVersion),
     onDisconnect: (ws) => sessions.handleDisconnect(ws),
   });
 
