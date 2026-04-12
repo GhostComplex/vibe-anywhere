@@ -7,92 +7,35 @@ struct ChatView: View {
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Messages
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(viewModel.messages) { message in
-                            MessageBubble(message: message)
-                                .id(message.id)
-                        }
-                    }
-                    .padding()
-                }
-                .onChange(of: viewModel.messages.count) { _, _ in
-                    scrollToBottom(proxy)
-                }
-                .onChange(of: viewModel.messages.last?.text) { _, _ in
-                    scrollToBottom(proxy)
-                }
-            }
+        ZStack {
+            Theme.background.ignoresSafeArea()
 
-            // Usage bar (shown after turn completes)
-            if let usage = viewModel.turnUsage, !viewModel.isWaiting {
-                HStack {
-                    Image(systemName: "gauge.with.dots.needle.bottom.50percent")
-                        .font(.caption2)
-                    Text("\(usage.inputTokens)↓ \(usage.outputTokens)↑")
-                        .font(.caption2.monospacedDigit())
-                }
-                .foregroundStyle(.secondary)
-                .padding(.vertical, 4)
-            }
-
-            Divider()
-
-            // Input bar
-            HStack(spacing: 8) {
-                TextField("Message…", text: $inputText, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .lineLimit(1...5)
-                    .focused($isInputFocused)
-                    .onSubmit {
+            VStack(spacing: 0) {
+                if viewModel.messages.isEmpty && !viewModel.isWaiting {
+                    EmptyStateView { chip in
+                        inputText = chip
                         send()
-                    }
-
-                if viewModel.isWaiting {
-                    // Cancel button while waiting
-                    Button {
-                        viewModel.cancelTurn()
-                    } label: {
-                        Image(systemName: "stop.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.red)
                     }
                 } else {
-                    // Send button
-                    Button {
-                        send()
-                    } label: {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.title2)
-                    }
-                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    messageList
                 }
+
+                usageBar
+
+                Divider().foregroundStyle(Theme.borderLight)
+
+                inputBar
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
         }
         .navigationTitle(viewModel.sessionAgent.capitalized)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 12) {
-                    if !viewModel.permissionHistory.isEmpty {
-                        NavigationLink {
-                            PermissionHistoryView(history: viewModel.permissionHistory)
-                        } label: {
-                            Image(systemName: "lock.shield")
-                                .font(.caption)
-                        }
-                    }
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .font(.caption)
-                    }
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
         }
@@ -104,22 +47,93 @@ struct ChatView: View {
             if let request = viewModel.pendingPermission {
                 PermissionModalView(
                     request: request,
-                    onApprove: { optionId in
-                        viewModel.approvePermission(optionId: optionId)
-                    },
-                    onDeny: {
-                        viewModel.denyPermission()
-                    }
+                    onApprove: { viewModel.approvePermission(optionId: $0) },
+                    onDeny: { viewModel.denyPermission() }
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .padding(.bottom, 80)
             }
         }
         .animation(.spring(duration: 0.3), value: viewModel.pendingPermission != nil)
-        .onAppear {
-            isInputFocused = true
+        .onAppear { isInputFocused = true }
+    }
+
+    // MARK: - Messages
+
+    private var messageList: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(viewModel.messages) { message in
+                        MessageBubble(message: message)
+                            .id(message.id)
+                    }
+                }
+                .padding()
+            }
+            .onChange(of: viewModel.messages.count) { _, _ in scrollToBottom(proxy) }
+            .onChange(of: viewModel.messages.last?.text) { _, _ in scrollToBottom(proxy) }
         }
     }
+
+    // MARK: - Usage
+
+    @ViewBuilder
+    private var usageBar: some View {
+        if let usage = viewModel.turnUsage, !viewModel.isWaiting {
+            HStack {
+                Image(systemName: "gauge.with.dots.needle.bottom.50percent")
+                    .font(.caption2)
+                Text("\(usage.inputTokens)↓ \(usage.outputTokens)↑")
+                    .font(.caption2.monospacedDigit())
+            }
+            .foregroundStyle(Theme.textTertiary)
+            .padding(.vertical, 4)
+        }
+    }
+
+    // MARK: - Input
+
+    private var inputBar: some View {
+        HStack(spacing: 10) {
+            TextField("Message…", text: $inputText, axis: .vertical)
+                .textFieldStyle(.plain)
+                .lineLimit(1...5)
+                .focused($isInputFocused)
+                .onSubmit { send() }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+
+            if viewModel.isWaiting {
+                Button { viewModel.cancelTurn() } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.caption)
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(Color.red)
+                        .clipShape(Circle())
+                }
+            } else {
+                Button { send() } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                ? Theme.textTertiary : Theme.buttonDark
+                        )
+                        .clipShape(Circle())
+                }
+                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(.horizontal, Theme.paddingMd)
+        .padding(.vertical, Theme.paddingSm)
+        .background(Theme.surface)
+    }
+
+    // MARK: - Helpers
 
     private func send() {
         let text = inputText

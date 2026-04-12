@@ -8,19 +8,23 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                switch wsService.state {
-                case .disconnected:
-                    ContentUnavailableView(
-                        "Not Connected",
-                        systemImage: "wifi.slash",
-                        description: Text("Configure your server connection in Settings.")
-                    )
-                case .connecting, .reconnecting:
-                    ProgressView("Connecting…")
-                case .connected:
-                    if let vm = sessionVM {
-                        SessionListView(viewModel: vm)
+            ZStack {
+                Theme.background.ignoresSafeArea()
+
+                Group {
+                    switch wsService.state {
+                    case .disconnected:
+                        ContentUnavailableView(
+                            "Not Connected",
+                            systemImage: "wifi.slash",
+                            description: Text("Configure your server connection in Settings.")
+                        )
+                    case .connecting, .reconnecting:
+                        ProgressView("Connecting…")
+                    case .connected:
+                        if let vm = sessionVM {
+                            SessionListView(viewModel: vm)
+                        }
                     }
                 }
             }
@@ -30,7 +34,8 @@ struct ContentView: View {
                     Button {
                         showSettings = true
                     } label: {
-                        Image(systemName: "gear")
+                        Image(systemName: "gearshape")
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
             }
