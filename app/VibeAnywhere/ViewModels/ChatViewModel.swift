@@ -58,6 +58,8 @@ final class ChatViewModel {
     private(set) var isWaiting = false
     private(set) var turnUsage: TurnUsage?
     private(set) var sessionAgent: String = "claude"
+    private(set) var currentModel: String?
+    private(set) var currentMode: String?
     private(set) var availableModels: [String]?
     private(set) var availableModes: [String]?
     private(set) var pendingPermission: PermissionRequest?
@@ -91,6 +93,16 @@ final class ChatViewModel {
     func cancelTurn() {
         guard isWaiting else { return }
         wsService.send(.sessionCancel(sessionId: sessionId))
+    }
+
+    func setMode(_ mode: String) {
+        wsService.send(.sessionSetMode(sessionId: sessionId, mode: mode))
+        currentMode = mode
+    }
+
+    func setModel(_ model: String) {
+        wsService.send(.sessionSetModel(sessionId: sessionId, model: model))
+        currentModel = model
     }
 
     func approvePermission(optionId: String) {
@@ -178,6 +190,13 @@ final class ChatViewModel {
             sessionAgent = agent
             availableModels = models
             availableModes = modes
+            // Set current selections from first available if not yet set
+            if currentModel == nil, let first = models?.first {
+                currentModel = first
+            }
+            if currentMode == nil, let first = modes?.first {
+                currentMode = first
+            }
 
         case .error(let message, _):
             appendError(message)
