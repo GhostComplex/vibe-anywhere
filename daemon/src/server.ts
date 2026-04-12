@@ -5,7 +5,7 @@ import { isClientMessage, type ClientMessage, type DaemonMessage } from './types
 
 export interface ServerOptions {
   config: Config;
-  onMessage: (ws: WebSocket, msg: ClientMessage) => void;
+  onMessage: (ws: WebSocket, msg: ClientMessage, protocolVersion: number) => void;
   onDisconnect?: (ws: WebSocket) => void;
 }
 
@@ -34,14 +34,19 @@ export function startServer(opts: ServerOptions): Server {
       return;
     }
 
+    // Extract protocol version from header (default to 1 for backward compat)
+    const version = parseInt(req.headers['x-protocol-version'] as string, 10) || 1;
+
     wss.handleUpgrade(req, socket, head, (ws) => {
+      (ws as WebSocket & { protocolVersion: number }).protocolVersion = version;
       wss.emit('connection', ws, req);
     });
   });
 
   wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     const addr = req.socket.remoteAddress ?? 'unknown';
-    console.log(`[ws] Client connected: ${addr}`);
+    const version = (ws as WebSocket & { protocolVersion: number }).protocolVersion ?? 1;
+    console.log(`[ws] Client connected: ${addr} (protocol v${version})`);
 
     ws.on('message', (data) => {
       let parsed: unknown;
@@ -57,7 +62,7 @@ export function startServer(opts: ServerOptions): Server {
         return;
       }
 
-      onMessage(ws, parsed);
+      onMessage(ws, parsed, (ws as WebSocket & { protocolVersion: number }).protocolVersion ?? 1);
     });
 
     ws.on('close', () => {
