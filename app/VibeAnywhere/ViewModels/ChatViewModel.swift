@@ -34,6 +34,23 @@ struct TurnUsage: Sendable {
     var outputTokens: Int
 }
 
+/// A permission request pending user approval
+struct PermissionRequest: Identifiable, Sendable {
+    let id: String  // requestId
+    let sessionId: String
+    let tool: String
+    let options: [PermissionOption]
+    let receivedAt: Date
+}
+
+/// Record of a resolved permission
+struct PermissionRecord: Identifiable, Sendable {
+    let id = UUID()
+    let tool: String
+    let outcome: String  // "approved" or "denied" or "auto-denied"
+    let resolvedAt: Date
+}
+
 @Observable
 @MainActor
 final class ChatViewModel {
@@ -43,9 +60,13 @@ final class ChatViewModel {
     private(set) var sessionAgent: String = "claude"
     private(set) var availableModels: [String]?
     private(set) var availableModes: [String]?
+    private(set) var pendingPermission: PermissionRequest?
+    private(set) var permissionHistory: [PermissionRecord] = []
 
     let sessionId: String
     private let wsService: WebSocketService
+    private var permissionTimer: Task<Void, Never>?
+    private static let permissionTimeoutSeconds: TimeInterval = 60
 
     init(sessionId: String, wsService: WebSocketService) {
         self.sessionId = sessionId
@@ -70,6 +91,41 @@ final class ChatViewModel {
     func cancelTurn() {
         guard isWaiting else { return }
         wsService.send(.sessionCancel(sessionId: sessionId))
+    }
+
+    func approvePermission(optionId: String) {
+        guard let request = pendingPermission else { return }
+        wsService.send(.permissionRespond(
+            sessionId: sessionId,
+            requestId: request.id,
+            optionId: optionId
+        ))
+        permissionHistory.append(PermissionRecord(
+            tool: request.tool,
+            outcome: "approved",
+            resolvedAt: Date()
+        ))
+        dismissPermission()
+    }
+
+    func denyPermission() {
+        guard let request = pendingPermission else { return }
+        // Find a reject/deny option
+        let denyOption = request.options.first { $0.kind.contains("reject") }
+            ?? request.options.last
+        if let option = denyOption {
+            wsService.send(.permissionRespond(
+                sessionId: sessionId,
+                requestId: request.id,
+                optionId: option.optionId
+            ))
+        }
+        permissionHistory.append(PermissionRecord(
+            tool: request.tool,
+            outcome: "denied",
+            resolvedAt: Date()
+        ))
+        dismissPermission()
     }
 
     func handleDaemonMessage(_ msg: DaemonMessage) {
@@ -100,6 +156,10 @@ final class ChatViewModel {
         case .eventToolCallUpdate(let sid, let toolCallId, let status, _):
             guard sid == sessionId else { return }
             updateToolCall(toolCallId: toolCallId, status: status)
+
+        case .eventPermissionRequest(let sid, let requestId, let tool, let options):
+            guard sid == sessionId else { return }
+            showPermissionRequest(requestId: requestId, tool: tool, options: options)
 
         case .eventUsage(let sid, let inputTokens, let outputTokens):
             guard sid == sessionId else { return }
@@ -196,5 +256,39 @@ final class ChatViewModel {
             return "{}"
         }
         return str
+    }
+
+    // MARK: - Permission handling
+
+    private func showPermissionRequest(requestId: String, tool: String, options: [PermissionOption]) {
+        permissionTimer?.cancel()
+        pendingPermission = PermissionRequest(
+            id: requestId,
+            sessionId: sessionId,
+            tool: tool,
+            options: options,
+            receivedAt: Date()
+        )
+        // Auto-deny after timeout
+        permissionTimer = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.permissionTimeoutSeconds))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self, self.pendingPermission?.id == requestId else { return }
+                self.permissionHistory.append(PermissionRecord(
+                    tool: tool,
+                    outcome: "auto-denied",
+                    resolvedAt: Date()
+                ))
+                self.pendingPermission = nil
+                self.permissionTimer = nil
+            }
+        }
+    }
+
+    private func dismissPermission() {
+        permissionTimer?.cancel()
+        permissionTimer = nil
+        pendingPermission = nil
     }
 }

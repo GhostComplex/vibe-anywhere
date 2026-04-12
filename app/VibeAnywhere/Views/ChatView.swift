@@ -75,6 +75,34 @@ struct ChatView: View {
         }
         .navigationTitle(viewModel.sessionAgent.capitalized)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !viewModel.permissionHistory.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        PermissionHistoryView(history: viewModel.permissionHistory)
+                    } label: {
+                        Image(systemName: "lock.shield")
+                            .font(.caption)
+                    }
+                }
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let request = viewModel.pendingPermission {
+                PermissionModalView(
+                    request: request,
+                    onApprove: { optionId in
+                        viewModel.approvePermission(optionId: optionId)
+                    },
+                    onDeny: {
+                        viewModel.denyPermission()
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.bottom, 80)
+            }
+        }
+        .animation(.spring(duration: 0.3), value: viewModel.pendingPermission != nil)
         .onAppear {
             isInputFocused = true
         }
