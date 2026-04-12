@@ -85,6 +85,7 @@ export class AcpBridge extends EventEmitter {
       type: 'user',
       message: { role: 'user', content },
     });
+    console.log(`[acp] Sending message to claude (${content.length} chars)`);
     this.process.stdin.write(msg + '\n');
   }
 
@@ -106,10 +107,12 @@ export class AcpBridge extends EventEmitter {
     try {
       data = JSON.parse(line) as Record<string, unknown>;
     } catch {
+      console.log(`[acp] Non-JSON line: ${line.slice(0, 200)}`);
       return;
     }
 
     const msgType = data.type as string;
+    console.log(`[acp] Received: type=${msgType} subtype=${data.subtype ?? ''} ${msgType === 'stream_event' ? `event.type=${(data.event as Record<string, unknown>)?.type}` : ''}`);
 
     switch (msgType) {
       case 'system': {

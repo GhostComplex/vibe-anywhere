@@ -106,11 +106,18 @@ final class WebSocketService {
         }
 
         let decoder = JSONDecoder()
-        guard let daemonMessage = try? decoder.decode(DaemonMessage.self, from: data) else {
-            print("[ws] Failed to decode message")
+        let daemonMessage: DaemonMessage
+        do {
+            daemonMessage = try decoder.decode(DaemonMessage.self, from: data)
+        } catch {
+            print("[ws] Failed to decode message: \(error)")
+            if let text = String(data: data, encoding: .utf8) {
+                print("[ws] Raw message: \(text.prefix(500))")
+            }
             return
         }
 
+        print("[ws] Decoded message: \(daemonMessage)")
         onMessage?(daemonMessage)
     }
 
