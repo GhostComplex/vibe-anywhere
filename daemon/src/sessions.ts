@@ -1,4 +1,5 @@
 import path from 'node:path';
+import os from 'node:os';
 import crypto from 'node:crypto';
 import { WebSocket } from 'ws';
 import { AcpBridge, type AcpEvent } from './acp.js';
@@ -74,7 +75,10 @@ export class SessionManager {
   }
 
   private createSession(ws: WebSocket, cwd: string): void {
-    const resolved = path.resolve(cwd);
+    const expanded = cwd.startsWith('~/') || cwd === '~'
+      ? path.join(os.homedir(), cwd.slice(1))
+      : cwd;
+    const resolved = path.resolve(expanded);
 
     if (!this.isAllowedDir(resolved)) {
       sendError(ws, `Directory not allowed: ${cwd}`);
@@ -154,6 +158,7 @@ export class SessionManager {
     }
 
     session.info.lastMessageAt = Date.now();
+    console.log(`[session] Sending message to session ${sessionId}: "${content.slice(0, 100)}"`);
 
     try {
       session.bridge.sendMessage(content);
@@ -186,7 +191,11 @@ export class SessionManager {
 
   private relayEvent(sessionId: string, event: AcpEvent): void {
     const session = this.sessions.get(sessionId);
-    if (!session?.client || session.client.readyState !== WebSocket.OPEN) return;
+    if (!session?.client || session.client.readyState !== WebSocket.OPEN) {
+      console.log(`[session] Dropping event ${event.type} for ${sessionId} — no connected client`);
+      return;
+    }
+    console.log(`[session] Relaying event: ${event.type} for ${sessionId}`);
 
     const ws = session.client;
 

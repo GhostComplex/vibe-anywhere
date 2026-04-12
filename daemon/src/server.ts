@@ -96,6 +96,10 @@ export function startServer(opts: ServerOptions): Server {
   return {
     async close(): Promise<void> {
       clearInterval(pingInterval);
+      // Force-close all WebSocket clients
+      for (const client of wss.clients) {
+        client.terminate();
+      }
       return new Promise((resolve, reject) => {
         wss.close(() => {
           httpServer.close((err) => {

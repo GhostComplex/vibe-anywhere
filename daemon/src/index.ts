@@ -51,15 +51,30 @@ function main(): void {
     onDisconnect: (ws) => sessions.handleDisconnect(ws),
   });
 
+  let shuttingDown = false;
+
   const shutdown = async (): Promise<void> => {
+    if (shuttingDown) {
+      console.log('Force exit.');
+      process.exit(1);
+    }
+    shuttingDown = true;
     console.log('\nShutting down...');
     sessions.destroyAll();
     await server.close();
     process.exit(0);
   };
 
-  process.on('SIGTERM', () => void shutdown());
-  process.on('SIGINT', () => void shutdown());
+  // Fallback force exit after 5s
+  const forceExit = (): void => {
+    setTimeout(() => {
+      console.error('Shutdown timed out, forcing exit.');
+      process.exit(1);
+    }, 5000).unref();
+  };
+
+  process.on('SIGTERM', () => { forceExit(); void shutdown(); });
+  process.on('SIGINT', () => { forceExit(); void shutdown(); });
 }
 
 main();

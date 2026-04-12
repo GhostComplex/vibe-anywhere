@@ -49,9 +49,14 @@ final class ChatViewModel {
     }
 
     func handleDaemonMessage(_ msg: DaemonMessage) {
+        print("[chat] handleDaemonMessage: \(msg), mySessionId=\(sessionId)")
         switch msg {
         case .streamText(let sid, let content):
-            guard sid == sessionId else { return }
+            guard sid == sessionId else {
+                print("[chat] sessionId mismatch: \(sid) != \(sessionId)")
+                return
+            }
+            print("[chat] appendToStreaming: \(content.prefix(100)), messages.count=\(messages.count)")
             appendToStreaming(content)
 
         case .streamToolUse(let sid, let tool, let input):
@@ -61,6 +66,7 @@ final class ChatViewModel {
 
         case .streamEnd(let sid, _):
             guard sid == sessionId else { return }
+            print("[chat] finalizeStreaming, lastMessage=\(messages.last?.text.prefix(100) ?? "nil")")
             finalizeStreaming()
 
         case .error(let message):
