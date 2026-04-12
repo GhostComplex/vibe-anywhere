@@ -5,7 +5,7 @@ import { isClientMessage, type ClientMessage, type DaemonMessage } from './types
 
 export interface ServerOptions {
   config: Config;
-  onMessage: (ws: WebSocket, msg: ClientMessage, protocolVersion: number) => void;
+  onMessage: (ws: WebSocket, msg: ClientMessage) => void;
   onDisconnect?: (ws: WebSocket) => void;
 }
 
@@ -34,19 +34,23 @@ export function startServer(opts: ServerOptions): Server {
       return;
     }
 
-    // Extract protocol version from header (default to 1 for backward compat)
-    const version = parseInt(req.headers['x-protocol-version'] as string, 10) || 1;
+    // Extract protocol version from header
+    const version = parseInt(req.headers['x-protocol-version'] as string, 10) || 2;
+    if (version < 2) {
+      socket.write('HTTP/1.1 426 Upgrade Required\r\nX-Protocol-Version: 2\r\n\r\n');
+      socket.destroy();
+      console.log(`[auth] Rejected v${version} client from ${req.socket.remoteAddress} — v2 required`);
+      return;
+    }
 
     wss.handleUpgrade(req, socket, head, (ws) => {
-      (ws as WebSocket & { protocolVersion: number }).protocolVersion = version;
       wss.emit('connection', ws, req);
     });
   });
 
   wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     const addr = req.socket.remoteAddress ?? 'unknown';
-    const version = (ws as WebSocket & { protocolVersion: number }).protocolVersion ?? 1;
-    console.log(`[ws] Client connected: ${addr} (protocol v${version})`);
+    console.log(`[ws] Client connected: ${addr}`);
 
     ws.on('message', (data) => {
       let parsed: unknown;
@@ -62,7 +66,7 @@ export function startServer(opts: ServerOptions): Server {
         return;
       }
 
-      onMessage(ws, parsed, (ws as WebSocket & { protocolVersion: number }).protocolVersion ?? 1);
+      onMessage(ws, parsed);
     });
 
     ws.on('close', () => {

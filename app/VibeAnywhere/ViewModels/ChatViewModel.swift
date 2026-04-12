@@ -142,21 +142,7 @@ final class ChatViewModel {
 
     func handleDaemonMessage(_ msg: DaemonMessage) {
         switch msg {
-        // v1 stream events
-        case .streamText(let sid, let content):
-            guard sid == sessionId else { return }
-            appendToStreaming(content)
-
-        case .streamToolUse(let sid, let tool, let input):
-            guard sid == sessionId else { return }
-            let inputStr = formatToolInput(input)
-            appendToolUse(tool: tool, input: inputStr)
-
-        case .streamEnd(let sid, _):
-            guard sid == sessionId else { return }
-            finalizeStreaming()
-
-        // v2 events
+        // Events
         case .eventText(let sid, let content):
             guard sid == sessionId else { return }
             appendToStreaming(content)
@@ -216,16 +202,6 @@ final class ChatViewModel {
         messages[lastIndex].text += text
     }
 
-    private func appendToolUse(tool: String, input: String) {
-        guard let lastIndex = messages.indices.last,
-              messages[lastIndex].role == .assistant,
-              messages[lastIndex].isStreaming else { return }
-
-        messages[lastIndex].toolUses.append(
-            ToolUseInfo(tool: tool, input: input)
-        )
-    }
-
     private func appendToolCallV2(toolCallId: String, tool: String, status: String) {
         guard let lastIndex = messages.indices.last,
               messages[lastIndex].role == .assistant,
@@ -265,16 +241,6 @@ final class ChatViewModel {
             messages.append(ChatMessage(role: .assistant, text: "⚠️ \(message)"))
         }
         isWaiting = false
-    }
-
-    private func formatToolInput(_ input: [String: AnyCodable]) -> String {
-        guard let data = try? JSONEncoder().encode(input),
-              let obj = try? JSONSerialization.jsonObject(with: data),
-              let pretty = try? JSONSerialization.data(withJSONObject: obj, options: .prettyPrinted),
-              let str = String(data: pretty, encoding: .utf8) else {
-            return "{}"
-        }
-        return str
     }
 
     // MARK: - Permission handling

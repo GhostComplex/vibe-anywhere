@@ -119,8 +119,8 @@ final class WebSocketService {
         }
 
         #if DEBUG
-        // Skip logging high-frequency stream events
-        if case .streamText = daemonMessage {} else {
+        // Skip logging high-frequency text events
+        if case .eventText = daemonMessage {} else {
             print("[ws] Received: \(daemonMessage)")
         }
         #endif

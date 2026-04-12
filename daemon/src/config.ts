@@ -9,7 +9,6 @@ export interface Config {
   bind: string;
   token: string;
   allowedDirs: string[];
-  claudePath: string;
   defaultAgent: string;
   acpx: {
     path: string;
@@ -40,7 +39,6 @@ function writeDefaultConfig(): Config {
     bind: '0.0.0.0',
     token: generateToken(),
     allowedDirs: ['~/projects'],
-    claudePath: 'claude',
     defaultAgent: 'claude',
     acpx: {
       path: 'npx',
@@ -67,7 +65,6 @@ function validate(raw: Record<string, unknown>): Config {
   }
 
   const bind = typeof raw.bind === 'string' ? raw.bind : '0.0.0.0';
-  const claudePath = typeof raw.claudePath === 'string' ? raw.claudePath : 'claude';
   const defaultAgent = typeof raw.defaultAgent === 'string' ? raw.defaultAgent : 'claude';
 
   const rawAcpx = (raw.acpx ?? {}) as Record<string, unknown>;
@@ -83,7 +80,7 @@ function validate(raw: Record<string, unknown>): Config {
     (dir) => path.resolve(expandTilde(dir)),
   );
 
-  return { port, bind, token: raw.token, allowedDirs, claudePath, defaultAgent, acpx };
+  return { port, bind, token: raw.token, allowedDirs, defaultAgent, acpx };
 }
 
 export function loadConfig(): Config {

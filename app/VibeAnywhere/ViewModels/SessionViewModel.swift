@@ -82,13 +82,8 @@ final class SessionViewModel {
     // MARK: - Private
 
     private func handleMessage(_ msg: DaemonMessage) {
-        // Forward stream/event messages to active chat
+        // Forward event messages to active chat
         switch msg {
-        // v1 stream
-        case .streamText, .streamToolUse, .streamEnd:
-            activeChatVM?.handleDaemonMessage(msg)
-            return
-        // v2 events
         case .eventText, .eventToolCall, .eventToolCallUpdate,
              .eventUsage, .eventTurnEnd, .eventError, .eventSessionInfo:
             activeChatVM?.handleDaemonMessage(msg)
