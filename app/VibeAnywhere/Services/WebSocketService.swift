@@ -31,6 +31,7 @@ final class WebSocketService {
 
         var request = URLRequest(url: url)
         request.setValue("Bearer \(config.token)", forHTTPHeaderField: "Authorization")
+        request.setValue("2", forHTTPHeaderField: "X-Protocol-Version")
         request.timeoutInterval = 10
 
         let urlSession = URLSession(configuration: .default)

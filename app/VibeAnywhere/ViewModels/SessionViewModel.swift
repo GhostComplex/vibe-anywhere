@@ -33,8 +33,8 @@ final class SessionViewModel {
         isLoading = true
     }
 
-    func createSession(cwd: String) {
-        wsService.send(.sessionCreate(cwd: cwd))
+    func createSession(cwd: String, agent: String? = nil) {
+        wsService.send(.sessionCreate(cwd: cwd, agent: agent))
         isLoading = true
     }
 
@@ -70,10 +70,19 @@ final class SessionViewModel {
     // MARK: - Private
 
     private func handleMessage(_ msg: DaemonMessage) {
-        // Forward stream events to active chat
+        // Forward stream/event messages to active chat
         switch msg {
+        // v1 stream
         case .streamText, .streamToolUse, .streamEnd:
-            print("[session-vm] Forwarding to activeChatVM: \(activeChatVM != nil)")
+            activeChatVM?.handleDaemonMessage(msg)
+            return
+        // v2 events
+        case .eventText, .eventToolCall, .eventToolCallUpdate,
+             .eventUsage, .eventTurnEnd, .eventError, .eventSessionInfo:
+            activeChatVM?.handleDaemonMessage(msg)
+            return
+        // permission requests also go to chat (for now — #47 will add modal)
+        case .eventPermissionRequest:
             activeChatVM?.handleDaemonMessage(msg)
             return
         case .error:
@@ -93,7 +102,10 @@ final class SessionViewModel {
             refreshSessions()
             onSelectSession?(sessionId)
 
-        case .error(let message):
+        case .sessionDestroyed:
+            break // already removed in destroySession
+
+        case .error(let message, _):
             if activeChatVM == nil {
                 error = message
             }

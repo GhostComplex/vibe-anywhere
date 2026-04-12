@@ -5,9 +5,12 @@ struct NewSessionView: View {
     var onDismiss: () -> Void
 
     @State private var path = ""
+    @State private var selectedAgent = "claude"
     @State private var favorites: [String] = []
 
     private static let favoritesKey = "savedDirectories"
+
+    private let agents = ["claude", "codex", "gemini"]
 
     var body: some View {
         NavigationStack {
@@ -17,6 +20,20 @@ struct NewSessionView: View {
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .font(.system(.body, design: .monospaced))
+                }
+
+                Section("Agent") {
+                    Picker("Agent", selection: $selectedAgent) {
+                        ForEach(agents, id: \.self) { agent in
+                            Label {
+                                Text(agent.capitalized)
+                            } icon: {
+                                Image(systemName: agentIcon(for: agent))
+                            }
+                            .tag(agent)
+                        }
+                    }
+                    .pickerStyle(.menu)
                 }
 
                 if !favorites.isEmpty {
@@ -71,7 +88,7 @@ struct NewSessionView: View {
             saveFavorites()
         }
 
-        viewModel.createSession(cwd: trimmed)
+        viewModel.createSession(cwd: trimmed, agent: selectedAgent)
         onDismiss()
     }
 
@@ -81,5 +98,14 @@ struct NewSessionView: View {
 
     private func saveFavorites() {
         UserDefaults.standard.set(favorites, forKey: Self.favoritesKey)
+    }
+
+    private func agentIcon(for agent: String) -> String {
+        switch agent {
+        case "claude": return "brain.head.profile"
+        case "codex": return "terminal"
+        case "gemini": return "sparkles"
+        default: return "cpu"
+        }
     }
 }

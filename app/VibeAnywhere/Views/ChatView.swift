@@ -26,6 +26,18 @@ struct ChatView: View {
                 }
             }
 
+            // Usage bar (shown after turn completes)
+            if let usage = viewModel.turnUsage, !viewModel.isWaiting {
+                HStack {
+                    Image(systemName: "gauge.with.dots.needle.bottom.50percent")
+                        .font(.caption2)
+                    Text("\(usage.inputTokens)↓ \(usage.outputTokens)↑")
+                        .font(.caption2.monospacedDigit())
+                }
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 4)
+            }
+
             Divider()
 
             // Input bar
@@ -38,17 +50,30 @@ struct ChatView: View {
                         send()
                     }
 
-                Button {
-                    send()
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
+                if viewModel.isWaiting {
+                    // Cancel button while waiting
+                    Button {
+                        viewModel.cancelTurn()
+                    } label: {
+                        Image(systemName: "stop.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.red)
+                    }
+                } else {
+                    // Send button
+                    Button {
+                        send()
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.title2)
+                    }
+                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isWaiting)
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
         }
+        .navigationTitle(viewModel.sessionAgent.capitalized)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             isInputFocused = true
