@@ -1,7 +1,6 @@
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { WebSocket } from 'ws';
-import { AcpBridge, type AcpEvent } from './acp.js';
 import { AcpManager, type AcpManagerEvent } from './acp-manager.js';
 import { send, sendError } from './server.js';
 import { type Config, expandTilde } from './config.js';
@@ -13,13 +12,10 @@ export interface SessionInfo {
   agent: string;
   createdAt: number;
   lastMessageAt: number;
-  protocolVersion: number;
 }
 
 interface Session {
   info: SessionInfo;
-  /** v1 only — old AcpBridge per session */
-  bridge: AcpBridge | null;
   client: WebSocket | null;
   /** Timer for reconnect window — destroys session if no client reconnects */
   reconnectTimer: ReturnType<typeof setTimeout> | null;
@@ -35,27 +31,21 @@ export class SessionManager {
     this.config = config;
     this.reconnectWindowMs = reconnectWindowSeconds * 1000;
 
-    // Create AcpManager for v2 sessions
     this.acpManager = new AcpManager({
       acpxPath: config.acpx.path,
       permissionMode: config.acpx.permissionMode,
       timeout: config.acpx.timeout,
     });
 
-    // Relay AcpManager events to the correct WebSocket client
     this.acpManager.on('event', (event: AcpManagerEvent) => {
-      this.relayAcpManagerEvent(event);
+      this.relayEvent(event);
     });
   }
 
-  handleMessage(ws: WebSocket, msg: ClientMessage, protocolVersion = 1): void {
+  handleMessage(ws: WebSocket, msg: ClientMessage): void {
     switch (msg.type) {
       case 'session/create':
-        if (protocolVersion >= 2) {
-          void this.createSessionV2(ws, msg.cwd, msg.agent ?? this.config.defaultAgent, protocolVersion);
-        } else {
-          this.createSessionV1(ws, msg.cwd);
-        }
+        void this.createSession(ws, msg.cwd, msg.agent ?? this.config.defaultAgent);
         break;
       case 'session/list':
         this.listSessions(ws);
@@ -69,11 +59,7 @@ export class SessionManager {
           sendError(ws, 'Message content cannot be empty');
           break;
         }
-        if (this.isV2Session(msg.sessionId)) {
-          void this.sendMessageV2(ws, msg.sessionId, trimmed);
-        } else {
-          this.sendMessageV1(ws, msg.sessionId, trimmed);
-        }
+        void this.sendMessage(ws, msg.sessionId, trimmed);
         break;
       }
       case 'session/destroy':
@@ -100,7 +86,6 @@ export class SessionManager {
       if (session.client === ws) {
         session.client = null;
         console.log(`[session] Client detached from ${session.info.sessionId}`);
-        // Start reconnect timer
         session.reconnectTimer = setTimeout(() => {
           console.log(`[session] Reconnect window expired for ${session.info.sessionId}`);
           this.destroySessionById(session.info.sessionId);
@@ -117,73 +102,9 @@ export class SessionManager {
     void this.acpManager.shutdown();
   }
 
-  // ── v1 Session (old AcpBridge path) ──
+  // ── Session operations ──
 
-  private createSessionV1(ws: WebSocket, cwd: string): void {
-    const resolved = this.resolveCwd(cwd);
-    if (!resolved) {
-      sendError(ws, `Directory not allowed: ${cwd}`);
-      return;
-    }
-
-    const sessionId = crypto.randomUUID();
-    const bridge = new AcpBridge();
-
-    const session: Session = {
-      info: {
-        sessionId,
-        cwd: resolved,
-        agent: 'claude',
-        createdAt: Date.now(),
-        lastMessageAt: Date.now(),
-        protocolVersion: 1,
-      },
-      bridge,
-      client: ws,
-      reconnectTimer: null,
-    };
-
-    this.sessions.set(sessionId, session);
-
-    bridge.on('event', (event: AcpEvent) => {
-      this.relayV1Event(sessionId, event);
-    });
-
-    try {
-      bridge.start({ claudePath: this.config.claudePath, cwd: resolved });
-    } catch (err) {
-      this.sessions.delete(sessionId);
-      sendError(ws, `Failed to start claude: ${(err as Error).message}`);
-      return;
-    }
-
-    console.log(`[session] Created v1 ${sessionId} in ${resolved}`);
-    send(ws, { type: 'session/created', sessionId, cwd: resolved });
-  }
-
-  private sendMessageV1(ws: WebSocket, sessionId: string, content: string): void {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      sendError(ws, `Session not found: ${sessionId}`);
-      return;
-    }
-
-    if (!session.bridge?.alive) {
-      sendError(ws, `Session claude process is not running: ${sessionId}`);
-      return;
-    }
-
-    session.info.lastMessageAt = Date.now();
-    try {
-      session.bridge.sendMessage(content);
-    } catch (err) {
-      sendError(ws, `Failed to send message: ${(err as Error).message}`);
-    }
-  }
-
-  // ── v2 Session (AcpManager path) ──
-
-  private async createSessionV2(ws: WebSocket, cwd: string, agent: string, protocolVersion: number): Promise<void> {
+  private async createSession(ws: WebSocket, cwd: string, agent: string): Promise<void> {
     const resolved = this.resolveCwd(cwd);
     if (!resolved) {
       sendError(ws, `Directory not allowed: ${cwd}`);
@@ -200,22 +121,20 @@ export class SessionManager {
           agent,
           createdAt: Date.now(),
           lastMessageAt: Date.now(),
-          protocolVersion,
         },
-        bridge: null, // v2 sessions use AcpManager
         client: ws,
         reconnectTimer: null,
       };
 
       this.sessions.set(result.sessionId, session);
-      console.log(`[session] Created v2 ${result.sessionId} (agent: ${agent}) in ${resolved}`);
+      console.log(`[session] Created ${result.sessionId} (agent: ${agent}) in ${resolved}`);
       send(ws, { type: 'session/created', sessionId: result.sessionId, cwd: resolved });
     } catch (err) {
       sendError(ws, `Failed to create session: ${(err as Error).message}`);
     }
   }
 
-  private async sendMessageV2(ws: WebSocket, sessionId: string, content: string): Promise<void> {
+  private async sendMessage(ws: WebSocket, sessionId: string, content: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) {
       sendError(ws, `Session not found: ${sessionId}`);
@@ -225,7 +144,6 @@ export class SessionManager {
     session.info.lastMessageAt = Date.now();
 
     try {
-      // prompt() blocks until turn_end; events arrive via AcpManager event emitter
       await this.acpManager.prompt(session.info.agent, sessionId, content);
     } catch (err) {
       sendError(ws, `Failed to send message: ${(err as Error).message}`);
@@ -238,22 +156,13 @@ export class SessionManager {
       sendError(ws, `Session not found: ${sessionId}`);
       return;
     }
-
-    if (this.isV2Session(sessionId)) {
-      await this.acpManager.cancel(session.info.agent, sessionId);
-    }
-    // v1 doesn't support cancel — would need to kill the process
+    await this.acpManager.cancel(session.info.agent, sessionId);
   }
 
   private async setMode(ws: WebSocket, sessionId: string, mode: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) {
       sendError(ws, `Session not found: ${sessionId}`);
-      return;
-    }
-
-    if (!this.isV2Session(sessionId)) {
-      sendError(ws, 'set-mode requires protocol v2');
       return;
     }
 
@@ -271,11 +180,6 @@ export class SessionManager {
       return;
     }
 
-    if (!this.isV2Session(sessionId)) {
-      sendError(ws, 'set-model requires protocol v2');
-      return;
-    }
-
     try {
       await this.acpManager.setModel(session.info.agent, sessionId, model);
     } catch (err) {
@@ -283,14 +187,12 @@ export class SessionManager {
     }
   }
 
-  private respondPermission(ws: WebSocket, requestId: string, optionId: string): void {
+  private respondPermission(_ws: WebSocket, requestId: string, optionId: string): void {
     const success = this.acpManager.respondPermission(requestId, optionId);
     if (!success) {
-      sendError(ws, `Permission request not found or expired: ${requestId}`);
+      sendError(_ws, `Permission request not found or expired: ${requestId}`);
     }
   }
-
-  // ── Shared session operations ──
 
   private listSessions(ws: WebSocket): void {
     const sessions = [...this.sessions.values()].map((s) => ({
@@ -308,7 +210,6 @@ export class SessionManager {
       return;
     }
 
-    // Cancel reconnect timer
     if (session.reconnectTimer) {
       clearTimeout(session.reconnectTimer);
       session.reconnectTimer = null;
@@ -336,52 +237,14 @@ export class SessionManager {
       clearTimeout(session.reconnectTimer);
     }
 
-    if (session.bridge) {
-      // v1 — kill the bridge process
-      session.bridge.destroy();
-    } else {
-      // v2 — close via AcpManager
-      void this.acpManager.closeSession(session.info.agent, sessionId);
-    }
-
+    void this.acpManager.closeSession(session.info.agent, sessionId);
     this.sessions.delete(sessionId);
     console.log(`[session] Destroyed ${sessionId}`);
   }
 
   // ── Event relay ──
 
-  /** Relay v1 AcpBridge events to WebSocket (v1 protocol) */
-  private relayV1Event(sessionId: string, event: AcpEvent): void {
-    const session = this.sessions.get(sessionId);
-    if (!session?.client || session.client.readyState !== WebSocket.OPEN) {
-      return;
-    }
-
-    const ws = session.client;
-
-    switch (event.type) {
-      case 'text':
-        send(ws, { type: 'stream/text', sessionId, content: event.content });
-        break;
-      case 'tool_use':
-        send(ws, { type: 'stream/tool_use', sessionId, tool: event.tool, input: event.input });
-        break;
-      case 'turn_end':
-        send(ws, { type: 'stream/end', sessionId, result: event.result });
-        break;
-      case 'error':
-        send(ws, { type: 'error', message: event.message });
-        break;
-      case 'exit':
-        send(ws, { type: 'error', message: `Claude process exited (code: ${event.code})` });
-        this.destroySessionById(sessionId);
-        break;
-    }
-  }
-
-  /** Relay v2 AcpManager events to WebSocket (v2 protocol) */
-  private relayAcpManagerEvent(event: AcpManagerEvent): void {
-    // agent_exit has no sessionId — handle separately
+  private relayEvent(event: AcpManagerEvent): void {
     if (event.type === 'agent_exit') {
       console.log(`[session] Agent "${event.agent}" exited (code: ${event.code})`);
       return;
@@ -456,7 +319,6 @@ export class SessionManager {
 
   private resolveCwd(cwd: string): string | null {
     const resolved = path.resolve(expandTilde(cwd));
-
     if (!this.isAllowedDir(resolved)) return null;
     return resolved;
   }
@@ -465,10 +327,5 @@ export class SessionManager {
     return this.config.allowedDirs.some(
       (allowed) => resolved === allowed || resolved.startsWith(allowed + path.sep),
     );
-  }
-
-  private isV2Session(sessionId: string): boolean {
-    const session = this.sessions.get(sessionId);
-    return session ? session.info.protocolVersion >= 2 : false;
   }
 }

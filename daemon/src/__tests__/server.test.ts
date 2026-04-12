@@ -15,7 +15,6 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
     bind: '127.0.0.1',
     token: TEST_TOKEN,
     allowedDirs: ['/tmp'],
-    claudePath: 'claude',
     defaultAgent: 'claude',
     acpx: {
       path: 'npx',

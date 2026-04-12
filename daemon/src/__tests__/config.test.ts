@@ -38,7 +38,6 @@ describe('Config', () => {
       bind: '127.0.0.1',
       token: 'test-token-123',
       allowedDirs: ['/tmp', '/home/user/projects'],
-      claudePath: '/usr/local/bin/claude',
     };
     fs.writeFileSync(TEST_CONFIG_PATH, YAML.stringify(raw));
     const parsed = YAML.parse(fs.readFileSync(TEST_CONFIG_PATH, 'utf-8'));
@@ -47,7 +46,6 @@ describe('Config', () => {
     assert.equal(parsed.bind, '127.0.0.1');
     assert.equal(parsed.token, 'test-token-123');
     assert.deepEqual(parsed.allowedDirs, ['/tmp', '/home/user/projects']);
-    assert.equal(parsed.claudePath, '/usr/local/bin/claude');
   });
 
   it('handles YAML roundtrip', () => {

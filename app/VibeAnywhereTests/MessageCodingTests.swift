@@ -52,28 +52,6 @@ final class MessageCodingTests: XCTestCase {
         }
     }
 
-    func testDecodeStreamText() throws {
-        let json = #"{"type":"stream/text","sessionId":"abc","content":"hello "}"#
-        let msg = try decoder.decode(DaemonMessage.self, from: json.data(using: .utf8)!)
-        if case .streamText(let sid, let content) = msg {
-            XCTAssertEqual(sid, "abc")
-            XCTAssertEqual(content, "hello ")
-        } else {
-            XCTFail("Expected streamText")
-        }
-    }
-
-    func testDecodeStreamEnd() throws {
-        let json = #"{"type":"stream/end","sessionId":"abc","result":"done"}"#
-        let msg = try decoder.decode(DaemonMessage.self, from: json.data(using: .utf8)!)
-        if case .streamEnd(let sid, let result) = msg {
-            XCTAssertEqual(sid, "abc")
-            XCTAssertEqual(result, "done")
-        } else {
-            XCTFail("Expected streamEnd")
-        }
-    }
-
     func testDecodeError() throws {
         let json = #"{"type":"error","message":"something broke"}"#
         let msg = try decoder.decode(DaemonMessage.self, from: json.data(using: .utf8)!)
@@ -104,6 +82,16 @@ final class MessageCodingTests: XCTestCase {
             XCTAssertEqual(type, "future/new_event")
         } else {
             XCTFail("Expected unknown")
+        }
+    }
+
+    func testV1StreamTypesDecodeAsUnknown() throws {
+        let json = #"{"type":"stream/text","sessionId":"abc","content":"hello"}"#
+        let msg = try decoder.decode(DaemonMessage.self, from: json.data(using: .utf8)!)
+        if case .unknown(let type) = msg {
+            XCTAssertEqual(type, "stream/text")
+        } else {
+            XCTFail("Expected unknown for removed v1 type")
         }
     }
 

@@ -2,7 +2,7 @@ import { loadConfig, rotateToken } from './config.js';
 import { startServer, type Server } from './server.js';
 import { SessionManager } from './sessions.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 function printHelp(): void {
   console.log(`vibe-anywhere v${VERSION}
@@ -41,7 +41,6 @@ function main(): void {
   console.log(`  Port: ${config.port}`);
   console.log(`  Bind: ${config.bind}`);
   console.log(`  Allowed dirs: ${config.allowedDirs.join(', ')}`);
-  console.log(`  Claude path: ${config.claudePath}`);
   console.log(`  Default agent: ${config.defaultAgent}`);
   console.log(`  ACP path: ${config.acpx.path}`);
   console.log(`  Permission mode: ${config.acpx.permissionMode}`);
@@ -50,7 +49,7 @@ function main(): void {
 
   const server = startServer({
     config,
-    onMessage: (ws, msg, protocolVersion) => sessions.handleMessage(ws, msg, protocolVersion),
+    onMessage: (ws, msg) => sessions.handleMessage(ws, msg),
     onDisconnect: (ws) => sessions.handleDisconnect(ws),
   });
 

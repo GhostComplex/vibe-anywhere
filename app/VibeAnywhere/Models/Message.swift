@@ -59,15 +59,11 @@ enum ClientMessage: Encodable {
 // MARK: - Daemon → Client
 
 enum DaemonMessage {
-    // v1
     case sessionCreated(sessionId: String, cwd: String)
     case sessionDestroyed(sessionId: String)
     case sessionList(sessions: [SessionInfo])
-    case streamText(sessionId: String, content: String)
-    case streamToolUse(sessionId: String, tool: String, input: [String: AnyCodable])
-    case streamEnd(sessionId: String, result: String)
     case error(message: String, sessionId: String?)
-    // v2 events
+    // Events
     case eventText(sessionId: String, content: String)
     case eventToolCall(sessionId: String, toolCallId: String, tool: String, status: String)
     case eventToolCallUpdate(sessionId: String, toolCallId: String, status: String?, content: String?)
@@ -90,7 +86,7 @@ struct PermissionOption: Codable, Sendable, Identifiable {
 
 extension DaemonMessage: Decodable {
     private enum CodingKeys: String, CodingKey {
-        case type, sessionId, cwd, sessions, content, tool, input, result, message
+        case type, sessionId, cwd, sessions, content, tool, message
         case toolCallId, status, requestId, options, agent, models, modes
         case inputTokens, outputTokens, stopReason
     }
@@ -110,19 +106,6 @@ extension DaemonMessage: Decodable {
         case "session/list":
             let sessions = try container.decode([SessionInfo].self, forKey: .sessions)
             self = .sessionList(sessions: sessions)
-        case "stream/text":
-            let sessionId = try container.decode(String.self, forKey: .sessionId)
-            let content = try container.decode(String.self, forKey: .content)
-            self = .streamText(sessionId: sessionId, content: content)
-        case "stream/tool_use":
-            let sessionId = try container.decode(String.self, forKey: .sessionId)
-            let tool = try container.decode(String.self, forKey: .tool)
-            let input = try container.decodeIfPresent([String: AnyCodable].self, forKey: .input) ?? [:]
-            self = .streamToolUse(sessionId: sessionId, tool: tool, input: input)
-        case "stream/end":
-            let sessionId = try container.decode(String.self, forKey: .sessionId)
-            let result = try container.decode(String.self, forKey: .result)
-            self = .streamEnd(sessionId: sessionId, result: result)
         case "error":
             let message = try container.decode(String.self, forKey: .message)
             let sessionId = try container.decodeIfPresent(String.self, forKey: .sessionId)
