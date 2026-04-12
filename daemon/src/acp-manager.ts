@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import crypto from 'node:crypto';
 import { Writable, Readable } from 'node:stream';
 import { EventEmitter } from 'node:events';
 import * as acp from '@agentclientprotocol/sdk';
@@ -279,7 +280,7 @@ export class AcpManager extends EventEmitter {
     }));
 
     // Find which session this is for — use toolCall context if available
-    const sessionId: string = (params as Record<string, unknown>).sessionId as string ?? 'unknown';
+    const sessionId = params.sessionId;
 
     this.emit('event', {
       type: 'permission_request',
@@ -408,7 +409,6 @@ export class AcpManager extends EventEmitter {
   }
 
   // ── Introspection ──
-
   isAgentRunning(agent: string): boolean {
     return this.agents.has(agent);
   }
@@ -420,6 +420,3 @@ export class AcpManager extends EventEmitter {
     return null;
   }
 }
-
-// Need crypto for request IDs
-import crypto from 'node:crypto';
