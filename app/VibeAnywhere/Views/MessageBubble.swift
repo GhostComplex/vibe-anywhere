@@ -15,7 +15,7 @@ struct MessageBubble: View {
 
                 // Streaming indicator
                 if message.isStreaming && message.text.isEmpty {
-                    streamingIndicator
+                    StreamingDots()
                 }
 
                 // Tool uses
@@ -45,25 +45,22 @@ struct MessageBubble: View {
                         .stroke(Theme.border, lineWidth: 1)
                 )
         } else {
-            // Assistant: plain text, no background
-            Text(message.text)
-                .textSelection(.enabled)
-                .foregroundStyle(Theme.textPrimary)
+            // Assistant: frosted glass card with Markdown
+            assistantCard
         }
     }
 
-    // MARK: - Streaming
-
-    private var streamingIndicator: some View {
-        HStack(spacing: 4) {
-            ForEach(0..<3, id: \.self) { i in
-                Circle()
-                    .fill(Theme.textTertiary)
-                    .frame(width: 5, height: 5)
-                    .opacity(0.4)
-            }
-        }
-        .padding(.vertical, 4)
+    private var assistantCard: some View {
+        MarkdownContentView(text: message.text)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.radiusMd)
+                    .stroke(Theme.border.opacity(0.5), lineWidth: 0.5)
+            )
+            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
     }
 
     // MARK: - Tool Card
@@ -87,9 +84,9 @@ struct MessageBubble: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Theme.surface)
+        .background(.ultraThinMaterial)
         .clipShape(Capsule())
-        .overlay(Capsule().stroke(Theme.border, lineWidth: 1))
+        .overlay(Capsule().stroke(Theme.border.opacity(0.5), lineWidth: 0.5))
     }
 
     private func statusColor(_ status: String) -> Color {
@@ -98,6 +95,31 @@ struct MessageBubble: View {
         case "running", "working": return Theme.accentWarm
         case "error", "failed": return .red
         default: return Theme.textTertiary
+        }
+    }
+}
+
+// MARK: - Streaming Dots Animation
+
+private struct StreamingDots: View {
+    @State private var phase = 0
+
+    private let timer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .fill(Theme.textTertiary)
+                    .frame(width: 6, height: 6)
+                    .scaleEffect(phase == i ? 1.0 : 0.5)
+                    .opacity(phase == i ? 1.0 : 0.3)
+            }
+        }
+        .padding(.vertical, 6)
+        .animation(.easeInOut(duration: 0.3), value: phase)
+        .onReceive(timer) { _ in
+            phase = (phase + 1) % 3
         }
     }
 }

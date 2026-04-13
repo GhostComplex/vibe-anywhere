@@ -61,18 +61,29 @@ struct ChatView: View {
     // MARK: - Messages
 
     private var messageList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(viewModel.messages) { message in
-                        MessageBubble(message: message)
-                            .id(message.id)
+        ZStack(alignment: .top) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(viewModel.messages) { message in
+                            MessageBubble(message: message)
+                                .id(message.id)
+                        }
                     }
+                    .padding()
                 }
-                .padding()
+                .onChange(of: viewModel.messages.count) { _, _ in scrollToBottom(proxy) }
+                .onChange(of: viewModel.messages.last?.text) { _, _ in scrollToBottom(proxy) }
             }
-            .onChange(of: viewModel.messages.count) { _, _ in scrollToBottom(proxy) }
-            .onChange(of: viewModel.messages.last?.text) { _, _ in scrollToBottom(proxy) }
+
+            // Liquid glass top fade
+            LinearGradient(
+                colors: [Theme.background, Theme.background.opacity(0)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 32)
+            .allowsHitTesting(false)
         }
     }
 
@@ -130,7 +141,7 @@ struct ChatView: View {
         }
         .padding(.horizontal, Theme.paddingMd)
         .padding(.vertical, Theme.paddingSm)
-        .background(Theme.surface)
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - Helpers
