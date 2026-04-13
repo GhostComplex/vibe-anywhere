@@ -76,14 +76,18 @@ struct ChatView: View {
                 .onChange(of: viewModel.messages.last?.text) { _, _ in scrollToBottom(proxy) }
             }
 
-            // Liquid glass top fade
-            LinearGradient(
-                colors: [Theme.background, Theme.background.opacity(0)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 32)
-            .allowsHitTesting(false)
+            // Liquid glass top blur
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .frame(height: 40)
+                .mask(
+                    LinearGradient(
+                        colors: [.black, .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .allowsHitTesting(false)
         }
     }
 
