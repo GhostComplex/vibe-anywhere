@@ -64,6 +64,7 @@ struct ContentView: View {
                 autoConnect()
             }
         }
+        .preferredColorScheme(.light)
     }
 
     private func autoConnect() {
