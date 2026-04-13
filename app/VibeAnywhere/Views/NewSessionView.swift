@@ -14,50 +14,19 @@ struct NewSessionView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Project Directory") {
-                    TextField("~/projects/my-app", text: $path)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .font(.system(.body, design: .monospaced))
-                }
+            ScrollView {
+                VStack(spacing: Theme.paddingMd) {
+                    directorySection
+                    agentSection
 
-                Section("Agent") {
-                    Picker("Agent", selection: $selectedAgent) {
-                        ForEach(agents, id: \.self) { agent in
-                            Label {
-                                Text(agent.capitalized)
-                            } icon: {
-                                Image(systemName: agentIcon(for: agent))
-                            }
-                            .tag(agent)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                if !favorites.isEmpty {
-                    Section("Recent") {
-                        ForEach(favorites, id: \.self) { dir in
-                            Button {
-                                path = dir
-                            } label: {
-                                Label {
-                                    Text(dir)
-                                        .font(.system(.body, design: .monospaced))
-                                        .foregroundStyle(.primary)
-                                } icon: {
-                                    Image(systemName: "folder")
-                                }
-                            }
-                        }
-                        .onDelete { indexSet in
-                            favorites.remove(atOffsets: indexSet)
-                            saveFavorites()
-                        }
+                    if !favorites.isEmpty {
+                        recentSection
                     }
                 }
+                .padding(.horizontal, Theme.paddingMd)
+                .padding(.top, Theme.paddingSm)
             }
+            .background(Theme.background.ignoresSafeArea())
             .navigationTitle("New Session")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -77,11 +46,128 @@ struct NewSessionView: View {
         }
     }
 
+    // MARK: - Sections
+
+    private var directorySection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("PROJECT DIRECTORY")
+
+            VStack(spacing: 0) {
+                fieldRow {
+                    TextField("~/projects/my-app", text: $path)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .font(.system(.body, design: .monospaced))
+                }
+            }
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 1)
+            )
+        }
+    }
+
+    private var agentSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("AGENT")
+
+            VStack(spacing: 0) {
+                ForEach(Array(agents.enumerated()), id: \.element) { index, agent in
+                    if index > 0 {
+                        Divider().foregroundStyle(Theme.border)
+                    }
+                    Button {
+                        selectedAgent = agent
+                    } label: {
+                        HStack {
+                            Image(systemName: agentIcon(for: agent))
+                                .foregroundStyle(Theme.textSecondary)
+                                .frame(width: 20)
+                            Text(agent.capitalized)
+                                .foregroundStyle(Theme.textPrimary)
+                            Spacer()
+                            if selectedAgent == agent {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Theme.accent)
+                                    .font(.subheadline.bold())
+                            }
+                        }
+                        .padding(.horizontal, Theme.paddingMd)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 1)
+            )
+        }
+    }
+
+    private var recentSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("RECENT")
+
+            VStack(spacing: 0) {
+                ForEach(Array(favorites.enumerated()), id: \.element) { index, dir in
+                    if index > 0 {
+                        Divider().foregroundStyle(Theme.border)
+                    }
+                    Button {
+                        path = dir
+                    } label: {
+                        HStack {
+                            Image(systemName: "folder")
+                                .foregroundStyle(Theme.textTertiary)
+                                .frame(width: 20)
+                            Text(dir)
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                        }
+                        .padding(.horizontal, Theme.paddingMd)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 1)
+            )
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption.bold())
+            .foregroundStyle(Theme.textTertiary)
+            .tracking(1)
+            .padding(.horizontal, 4)
+            .padding(.bottom, Theme.paddingSm)
+    }
+
+    private func fieldRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, Theme.paddingMd)
+            .padding(.vertical, 14)
+    }
+
     private func createSession() {
         let trimmed = path.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
 
-        // Save to favorites
         if !favorites.contains(trimmed) {
             favorites.insert(trimmed, at: 0)
             if favorites.count > 10 { favorites = Array(favorites.prefix(10)) }
