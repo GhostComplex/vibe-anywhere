@@ -133,10 +133,13 @@ describe('WebSocket Server Auth', () => {
       const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}`, {
         headers: { Authorization: `Bearer ${TEST_TOKEN}` },
       });
+      let msgCount = 0;
       ws.on('open', () => {
         ws.send('not json');
       });
       ws.on('message', (data) => {
+        msgCount++;
+        if (msgCount === 1) return; // skip hello
         ws.close();
         resolve(data.toString());
       });
