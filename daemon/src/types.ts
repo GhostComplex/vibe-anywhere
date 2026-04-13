@@ -144,7 +144,13 @@ export interface EventSessionInfoMsg {
   modes?: string[];
 }
 
+export interface HelloMsg {
+  type: 'hello';
+  version: number;
+}
+
 export type DaemonMessage =
+  | HelloMsg
   | SessionCreatedMsg
   | SessionDestroyedMsg
   | SessionListResponseMsg

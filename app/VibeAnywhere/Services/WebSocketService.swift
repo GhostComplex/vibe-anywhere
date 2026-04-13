@@ -41,7 +41,8 @@ final class WebSocketService {
         self.task = wsTask
         wsTask.resume()
 
-        state = .connected
+        // Don't set .connected yet — wait for the daemon's hello message
+        // which proves the WebSocket handshake actually completed.
         startReceiving()
     }
 
@@ -85,7 +86,7 @@ final class WebSocketService {
                 switch result {
                 case .success(let message):
                     self.handleWSMessage(message)
-                    self.startReceiving() // Continue receiving
+                    self.startReceiving()
                 case .failure(let error):
                     print("[ws] Receive error: \(error.localizedDescription)")
                     self.handleDisconnect()
@@ -120,10 +121,18 @@ final class WebSocketService {
 
         #if DEBUG
         // Skip logging high-frequency text events
-        if case .eventText = daemonMessage {} else {
+        if case .eventText = daemonMessage {} else if case .hello = daemonMessage {} else {
             print("[ws] Received: \(daemonMessage)")
         }
         #endif
+
+        // Handle hello — transition to connected state
+        if case .hello = daemonMessage {
+            print("[ws] Received hello, current state: \(state), transitioning to .connected")
+            state = .connected
+            return // Don't forward hello to consumers
+        }
+
         onMessage?(daemonMessage)
     }
 
