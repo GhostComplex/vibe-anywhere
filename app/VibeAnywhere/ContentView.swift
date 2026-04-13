@@ -4,6 +4,8 @@ struct ContentView: View {
     @State private var wsService = WebSocketService()
     @State private var sessionVM: SessionViewModel?
     @State private var showSettings = false
+    @State private var connectingElapsed: Int = 0
+    @State private var connectingTimer: Timer?
     @State private var selectedSessionId: String?
 
     var body: some View {
@@ -16,13 +18,7 @@ struct ContentView: View {
                     case .disconnected:
                         disconnectedView
                     case .connecting, .reconnecting:
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .scaleEffect(1.2)
-                            Text("Connecting…")
-                                .font(.subheadline)
-                                .foregroundStyle(Theme.textSecondary)
-                        }
+                        connectingView
                     case .connected:
                         if let vm = sessionVM {
                             SessionListView(viewModel: vm)
@@ -55,7 +51,10 @@ struct ContentView: View {
                     showSettings = false
                 }
             }
-            .onChange(of: wsService.state) { _, newState in
+            .onAppear {
+                autoConnect()
+            }
+            .onChange(of: wsService.state) { oldState, newState in
                 if newState == .connected && sessionVM == nil {
                     let vm = SessionViewModel(wsService: wsService)
                     vm.onSelectSession = { sessionId in
@@ -63,9 +62,7 @@ struct ContentView: View {
                     }
                     sessionVM = vm
                 }
-            }
-            .onAppear {
-                autoConnect()
+                handleTimerForState(newState)
             }
         }
         .preferredColorScheme(.light)
@@ -76,6 +73,129 @@ struct ContentView: View {
         if config.isValid {
             wsService.connect(config: config)
         }
+    }
+
+    private func handleTimerForState(_ newState: ConnectionState) {
+        if case .connecting = newState {
+            connectingElapsed = 0
+            connectingTimer?.invalidate()
+            connectingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+                Task { @MainActor in connectingElapsed += 1 }
+            }
+        } else if case .reconnecting = newState {
+            // Keep timer running
+        } else {
+            connectingTimer?.invalidate()
+            connectingTimer = nil
+            connectingElapsed = 0
+        }
+    }
+
+    // MARK: - Connecting
+
+    private var connectingView: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 100, height: 100)
+                    .overlay(
+                        Circle().stroke(Theme.border.opacity(0.5), lineWidth: 0.5)
+                    )
+
+                ProgressView()
+                    .scaleEffect(1.3)
+            }
+
+            VStack(spacing: 8) {
+                Text(connectingTitle)
+                    .font(.title3.bold())
+                    .foregroundStyle(Theme.textPrimary)
+
+                Text(connectingSubtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+
+                if connectingElapsed >= 5 {
+                    Text("\(config.host):\(config.port)")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(Theme.textTertiary)
+                        .padding(.top, 2)
+                }
+            }
+
+            if connectingElapsed >= 10 {
+                HStack(spacing: 12) {
+                    Button {
+                        wsService.disconnect()
+                        let cfg = KeychainService.loadConfig()
+                        if cfg.isValid {
+                            wsService.connect(config: cfg)
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Retry")
+                        }
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(Theme.buttonDark)
+                        .clipShape(Capsule())
+                    }
+
+                    Button {
+                        showSettings = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "gearshape")
+                            Text("Settings")
+                        }
+                        .font(.subheadline.bold())
+                        .foregroundStyle(Theme.textPrimary)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(Theme.surface)
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Theme.border, lineWidth: 1))
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
+            Spacer()
+            Spacer()
+        }
+        .padding(.horizontal, Theme.paddingLg)
+        .animation(.easeInOut(duration: 0.3), value: connectingElapsed >= 5)
+        .animation(.easeInOut(duration: 0.3), value: connectingElapsed >= 10)
+    }
+
+    private var connectingTitle: String {
+        switch wsService.state {
+        case .reconnecting(let attempt):
+            "Reconnecting (\(attempt)/10)…"
+        default:
+            "Connecting…"
+        }
+    }
+
+    private var connectingSubtitle: String {
+        if connectingElapsed >= 10 {
+            return "Taking longer than expected.\nCheck that your daemon is running."
+        } else if connectingElapsed >= 5 {
+            return "Still trying to reach your daemon…"
+        } else {
+            return "Establishing connection…"
+        }
+    }
+
+    private var config: ConnectionConfig {
+        KeychainService.loadConfig()
     }
 
     // MARK: - Disconnected
