@@ -1,5 +1,8 @@
 import Foundation
 import Observation
+import os
+
+private let wsLog = Logger(subsystem: "com.ghostcomplex.VibeAnywhere", category: "WebSocket")
 
 enum ConnectionState: Sendable, Equatable {
     case disconnected
@@ -12,18 +15,22 @@ enum ConnectionState: Sendable, Equatable {
 @MainActor
 final class WebSocketService {
     private(set) var state: ConnectionState = .disconnected
-    private var task: URLSessionWebSocketTask?
-    private var session: URLSession?
+    private var wsTask: URLSessionWebSocketTask?
+    private var urlSession: URLSession?
     private var config: ConnectionConfig = .empty
     private var reconnectTask: Task<Void, Never>?
+    private var receiveTask: Task<Void, Never>?
     private var maxReconnectAttempts = 10
     private var isManualDisconnect = false
+    private var wsDelegate: WebSocketDelegate?
 
-    /// Stream of daemon messages for consumers
     var onMessage: ((DaemonMessage) -> Void)?
 
     func connect(config: ConnectionConfig) {
-        guard config.isValid, let url = config.wsURL else { return }
+        guard config.isValid, let url = config.wsURL else {
+            wsLog.error("[ws] invalid config or URL")
+            return
+        }
 
         isManualDisconnect = false
         self.config = config
@@ -34,65 +41,80 @@ final class WebSocketService {
         request.setValue("2", forHTTPHeaderField: "X-Protocol-Version")
         request.timeoutInterval = 10
 
-        let urlSession = URLSession(configuration: .default)
-        self.session = urlSession
+        let delegate = WebSocketDelegate()
+        self.wsDelegate = delegate
 
-        let wsTask = urlSession.webSocketTask(with: request)
-        self.task = wsTask
-        wsTask.resume()
+        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+        self.urlSession = session
 
-        // Don't set .connected yet — wait for the daemon's hello message
-        // which proves the WebSocket handshake actually completed.
-        startReceiving()
+        let task = session.webSocketTask(with: request)
+        self.wsTask = task
+
+        // Start detached receive loop — must NOT run on MainActor.
+        // Capture only the task (Sendable) and a weak reference-free callback.
+        let taskRef = task
+        receiveTask?.cancel()
+        receiveTask = Task.detached { [weak self] in
+            await self?.receiveLoop(task: taskRef)
+        }
+
+        task.resume()
+        wsLog.info("[ws] connecting to \(url.absoluteString)")
     }
 
     func disconnect() {
         isManualDisconnect = true
         reconnectTask?.cancel()
         reconnectTask = nil
-        task?.cancel(with: .normalClosure, reason: nil)
-        task = nil
-        session?.invalidateAndCancel()
-        session = nil
+        receiveTask?.cancel()
+        receiveTask = nil
+        wsTask?.cancel(with: .normalClosure, reason: nil)
+        wsTask = nil
+        urlSession?.invalidateAndCancel()
+        urlSession = nil
         state = .disconnected
     }
 
     func send(_ message: ClientMessage) {
-        guard state == .connected, let task else { return }
+        guard state == .connected, let wsTask else { return }
 
         let encoder = JSONEncoder()
         guard let data = try? encoder.encode(message),
               let string = String(data: data, encoding: .utf8) else { return }
 
-        task.send(.string(string)) { [weak self] error in
+        wsTask.send(.string(string)) { error in
             if let error {
-                print("[ws] Send error: \(error.localizedDescription)")
-                Task { @MainActor in
-                    self?.handleDisconnect()
-                }
+                wsLog.error("[ws] send error: \(error.localizedDescription)")
             }
         }
     }
 
     // MARK: - Private
 
-    private func startReceiving() {
-        guard let task else { return }
+    /// Called from detached task. The method itself is MainActor-isolated,
+    /// but the `task.receive()` call will suspend and yield the actor,
+    /// allowing other MainActor work to proceed.
+    private func receiveLoop(task: URLSessionWebSocketTask) async {
+        wsLog.info("[ws] receive loop started")
 
-        task.receive { [weak self] result in
-            Task { @MainActor in
-                guard let self else { return }
-
-                switch result {
-                case .success(let message):
-                    self.handleWSMessage(message)
-                    self.startReceiving()
-                case .failure(let error):
-                    print("[ws] Receive error: \(error.localizedDescription)")
-                    self.handleDisconnect()
-                }
+        do {
+            while !Task.isCancelled {
+                wsLog.debug("[ws] awaiting message...")
+                // This is the key call — it suspends until a message arrives.
+                // Because this method is @MainActor, the suspension point
+                // releases the main actor for other work.
+                let message = try await task.receive()
+                wsLog.info("[ws] message received")
+                handleWSMessage(message)
+            }
+        } catch {
+            if !Task.isCancelled {
+                wsLog.error("[ws] receive error: \(error.localizedDescription)")
+                handleDisconnect()
             }
         }
+
+        wsLog.info("[ws] receive loop ended")
     }
 
     private func handleWSMessage(_ message: URLSessionWebSocketTask.Message) {
@@ -112,41 +134,31 @@ final class WebSocketService {
         do {
             daemonMessage = try decoder.decode(DaemonMessage.self, from: data)
         } catch {
-            print("[ws] Failed to decode message: \(error)")
-            if let text = String(data: data, encoding: .utf8) {
-                print("[ws] Raw message: \(text.prefix(500))")
-            }
+            wsLog.error("[ws] decode error: \(error.localizedDescription)")
             return
         }
 
-        #if DEBUG
-        // Skip logging high-frequency text events
-        if case .eventText = daemonMessage {} else if case .hello = daemonMessage {} else {
-            print("[ws] Received: \(daemonMessage)")
-        }
-        #endif
-
-        // Handle hello — transition to connected state
         if case .hello = daemonMessage {
-            print("[ws] Received hello, current state: \(state), transitioning to .connected")
+            wsLog.info("[ws] hello → connected")
             state = .connected
-            return // Don't forward hello to consumers
+            return
         }
 
         onMessage?(daemonMessage)
     }
 
     private func handleDisconnect() {
-        task = nil
-        session?.invalidateAndCancel()
-        session = nil
+        receiveTask?.cancel()
+        receiveTask = nil
+        wsTask = nil
+        urlSession?.invalidateAndCancel()
+        urlSession = nil
 
         guard !isManualDisconnect else {
             state = .disconnected
             return
         }
 
-        // Auto-reconnect with exponential backoff
         scheduleReconnect(attempt: 1)
     }
 
@@ -159,15 +171,24 @@ final class WebSocketService {
         state = .reconnecting(attempt: attempt)
 
         reconnectTask = Task { [weak self, config] in
-            let delay = min(pow(2.0, Double(attempt - 1)), 30.0) // 1, 2, 4, 8, ... max 30s
+            let delay = min(pow(2.0, Double(attempt - 1)), 30.0)
             try? await Task.sleep(for: .seconds(delay))
 
             guard !Task.isCancelled else { return }
 
-            await MainActor.run {
-                guard let self, !self.isManualDisconnect else { return }
-                self.connect(config: config)
-            }
+            self?.connect(config: config)
         }
+    }
+}
+
+// MARK: - URLSession WebSocket Delegate
+
+private final class WebSocketDelegate: NSObject, URLSessionWebSocketDelegate, @unchecked Sendable {
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol_: String?) {
+        wsLog.info("[ws] didOpen (protocol: \(protocol_ ?? "nil"))")
+    }
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        wsLog.info("[ws] didClose (code: \(closeCode.rawValue))")
     }
 }
