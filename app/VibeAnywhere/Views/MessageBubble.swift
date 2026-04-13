@@ -38,14 +38,21 @@ struct MessageBubble: View {
                 .foregroundStyle(Theme.textPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Theme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd))
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: Theme.radiusMd)
-                        .stroke(Theme.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.white.opacity(0.6), Theme.border.opacity(0.3)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.5
+                        )
                 )
+                .shadow(color: .black.opacity(0.06), radius: 3, y: 2)
         } else {
-            // Assistant: frosted glass card with Markdown
             assistantCard
         }
     }
@@ -55,12 +62,19 @@ struct MessageBubble: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: Theme.radiusMd)
-                    .stroke(Theme.border.opacity(0.5), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [.white.opacity(0.7), Theme.border.opacity(0.3)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
+                    )
             )
-            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
+            .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
     }
 
     // MARK: - Tool Card
