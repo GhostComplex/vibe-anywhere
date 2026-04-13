@@ -52,10 +52,15 @@ export function startServer(opts: ServerOptions): Server {
     const addr = req.socket.remoteAddress ?? 'unknown';
     console.log(`[ws] Client connected: ${addr}`);
 
+    // Send hello so client knows the connection is fully established
+    send(ws, { type: 'hello', version: 2 });
+
     ws.on('message', (data) => {
+      const raw = data.toString();
+      console.log(`[ws] Received from ${addr}: ${raw.substring(0, 200)}`);
       let parsed: unknown;
       try {
-        parsed = JSON.parse(data.toString());
+        parsed = JSON.parse(raw);
       } catch {
         sendError(ws, 'Invalid JSON');
         return;

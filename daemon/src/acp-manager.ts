@@ -64,16 +64,38 @@ export class AcpManager extends EventEmitter {
     await this.spawnAgent(agent);
   }
 
+  // Map agent name → ACP adapter package (what acpx uses internally)
+  private static readonly ACP_AGENTS: Record<string, string> = {
+    claude: '@agentclientprotocol/claude-agent-acp',
+    codex: '@zed-industries/codex-acp',
+  };
+
   private async spawnAgent(agent: string): Promise<AgentProcess> {
-    const args = this.config.acpxPath === 'npx'
-      ? ['acpx@latest', agent]
-      : [agent];
-    const cmd = this.config.acpxPath === 'npx' ? 'npx' : this.config.acpxPath;
+    const acpPackage = AcpManager.ACP_AGENTS[agent];
+    let cmd: string;
+    let args: string[];
+
+    if (acpPackage && this.config.acpxPath === 'npx') {
+      // Use the actual ACP adapter package directly
+      cmd = 'npx';
+      args = ['-y', `${acpPackage}@latest`];
+    } else if (this.config.acpxPath === 'npx') {
+      // Unknown agent — fall back to acpx
+      cmd = 'npx';
+      args = ['--yes', 'acpx@latest', agent];
+    } else {
+      cmd = this.config.acpxPath;
+      args = [agent];
+    }
+
+    console.log(`[acp-mgr] Spawning: ${cmd} ${args.join(' ')}`);
 
     const proc = spawn(cmd, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
     });
+
+    console.log(`[acp-mgr] Process spawned, pid: ${proc.pid}`);
 
     proc.stderr?.on('data', (data: Buffer) => {
       const msg = data.toString().trim();
@@ -111,6 +133,7 @@ export class AcpManager extends EventEmitter {
     });
 
     // Initialize ACP connection
+    console.log(`[acp-mgr] Sending initialize request to agent "${agent}" (protocol v${acp.PROTOCOL_VERSION})...`);
     try {
       const initResult = await connection.initialize({
         protocolVersion: acp.PROTOCOL_VERSION,
@@ -124,6 +147,7 @@ export class AcpManager extends EventEmitter {
       agentProc.initialized = true;
       console.log(`[acp-mgr] Agent "${agent}" initialized (protocol v${initResult.protocolVersion})`);
     } catch (err) {
+      console.error(`[acp-mgr] Initialize failed for "${agent}":`, err);
       proc.kill('SIGTERM');
       throw new Error(`Failed to initialize agent "${agent}": ${(err as Error).message}`);
     }
