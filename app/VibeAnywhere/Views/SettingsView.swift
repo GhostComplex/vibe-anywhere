@@ -26,53 +26,20 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField("Host or IP", text: $host)
-                        .textContentType(.URL)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
+            ScrollView {
+                VStack(spacing: Theme.paddingMd) {
+                    connectionSection
+                    authSection
+                    statusSection
 
-                    TextField("Port", text: $portText)
-                        .keyboardType(.numberPad)
-                } header: {
-                    Text("CONNECTION")
-                }
-
-                Section {
-                    HStack {
-                        if showToken {
-                            TextField("Bearer Token", text: $token)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                                .font(.system(.body, design: .monospaced))
-                        } else {
-                            SecureField("Bearer Token", text: $token)
-                        }
-                        Button {
-                            showToken.toggle()
-                        } label: {
-                            Image(systemName: showToken ? "eye.slash" : "eye")
-                                .foregroundStyle(Theme.textSecondary)
-                        }
-                    }
-                } header: {
-                    Text("AUTHENTICATION")
-                }
-
-                Section {
-                    connectionStatus
-                } header: {
-                    Text("STATUS")
-                }
-
-                if let saveError {
-                    Section {
-                        Text(saveError)
-                            .foregroundStyle(.red)
+                    if let saveError {
+                        errorSection(saveError)
                     }
                 }
+                .padding(.horizontal, Theme.paddingMd)
+                .padding(.top, Theme.paddingSm)
             }
+            .background(Theme.background.ignoresSafeArea())
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -89,16 +56,130 @@ struct SettingsView: View {
         }
     }
 
-    @ViewBuilder
-    private var connectionStatus: some View {
-        HStack {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
-            Text(statusText)
-                .foregroundStyle(.secondary)
+    // MARK: - Sections
+
+    private var connectionSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("CONNECTION")
+
+            VStack(spacing: 0) {
+                fieldRow {
+                    TextField("Host or IP", text: $host)
+                        .textContentType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+
+                Divider()
+                    .foregroundStyle(Theme.border)
+
+                fieldRow {
+                    TextField("Port", text: $portText)
+                        .keyboardType(.numberPad)
+                }
+            }
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 1)
+            )
         }
     }
+
+    private var authSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("AUTHENTICATION")
+
+            VStack(spacing: 0) {
+                fieldRow {
+                    HStack {
+                        if showToken {
+                            TextField("Bearer Token", text: $token)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                                .font(.system(.body, design: .monospaced))
+                        } else {
+                            SecureField("Bearer Token", text: $token)
+                        }
+                        Button {
+                            showToken.toggle()
+                        } label: {
+                            Image(systemName: showToken ? "eye.slash" : "eye")
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                }
+            }
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 1)
+            )
+        }
+    }
+
+    private var statusSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("STATUS")
+
+            VStack(spacing: 0) {
+                fieldRow {
+                    HStack {
+                        Circle()
+                            .fill(statusColor)
+                            .frame(width: 8, height: 8)
+                        Text(statusText)
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                }
+            }
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 1)
+            )
+        }
+    }
+
+    private func errorSection(_ message: String) -> some View {
+        HStack {
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundStyle(.red)
+            Text(message)
+                .foregroundStyle(.red)
+                .font(.subheadline)
+        }
+        .padding(Theme.paddingMd)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.red.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                .stroke(Color.red.opacity(0.2), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Helpers
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption.bold())
+            .foregroundStyle(Theme.textTertiary)
+            .tracking(1)
+            .padding(.horizontal, 4)
+            .padding(.bottom, Theme.paddingSm)
+    }
+
+    private func fieldRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, Theme.paddingMd)
+            .padding(.vertical, 14)
+    }
+
+    // MARK: - Status
 
     private var statusColor: Color {
         switch wsService.state {
@@ -117,8 +198,9 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Actions
+
     private func saveAndConnect() {
-        // Trim whitespace before saving — prevents invisible newlines from clipboard paste
         let trimmed = ConnectionConfig(
             host: host.trimmingCharacters(in: .whitespacesAndNewlines),
             port: Int(portText) ?? 7842,
@@ -128,7 +210,6 @@ struct SettingsView: View {
             try KeychainService.saveConfig(trimmed)
             saveError = nil
         } catch {
-            // Keychain may fail in Simulator (-34018) — warn but still connect
             saveError = error.localizedDescription
         }
         wsService.connect(config: trimmed)

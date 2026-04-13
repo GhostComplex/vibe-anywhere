@@ -58,11 +58,52 @@ struct SessionListView: View {
     // MARK: - Empty
 
     private var emptyState: some View {
-        ContentUnavailableView(
-            "No Sessions",
-            systemImage: "terminal",
-            description: Text("Create a new session to start coding.")
-        )
+        VStack(spacing: Theme.paddingLg) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(Theme.surface)
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Circle().stroke(Theme.border, lineWidth: 1)
+                    )
+
+                Image(systemName: "waveform.circle")
+                    .font(.system(size: 36, weight: .light))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+
+            VStack(spacing: 8) {
+                Text("No Sessions")
+                    .font(.title3.bold())
+                    .foregroundStyle(Theme.textPrimary)
+
+                Text("Start a new session to begin coding\nwith your AI agent.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                showNewSession = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                    Text("New Session")
+                }
+                .font(.subheadline.bold())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(Theme.buttonDark)
+                .clipShape(Capsule())
+            }
+
+            Spacer()
+            Spacer()
+        }
+        .padding(.horizontal, Theme.paddingLg)
     }
 
     // MARK: - List
