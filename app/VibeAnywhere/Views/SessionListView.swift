@@ -174,13 +174,13 @@ struct SessionListView: View {
                     .clipShape(Capsule())
             }
             .padding(Theme.paddingMd)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLg))
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: Theme.radiusLg)
-                    .stroke(Theme.border.opacity(0.5), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 1)
             )
-            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
+            .shadow(color: Theme.cardShadow, radius: 2, y: 1)
         }
         .buttonStyle(.plain)
         .contextMenu {

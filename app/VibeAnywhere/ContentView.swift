@@ -38,6 +38,10 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: "gearshape")
                             .foregroundStyle(Theme.textSecondary)
+                            .frame(width: 32, height: 32)
+                            .background(Theme.surface)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(Theme.border, lineWidth: 1))
                     }
                 }
             }
