@@ -133,7 +133,13 @@ struct SessionListView: View {
                     .clipShape(Capsule())
             }
             .padding(Theme.paddingMd)
-            .cardStyle()
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLg))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.radiusLg)
+                    .stroke(Theme.border.opacity(0.5), lineWidth: 0.5)
+            )
+            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
         }
         .buttonStyle(.plain)
         .contextMenu {

@@ -14,13 +14,15 @@ struct ContentView: View {
                 Group {
                     switch wsService.state {
                     case .disconnected:
-                        ContentUnavailableView(
-                            "Not Connected",
-                            systemImage: "wifi.slash",
-                            description: Text("Configure your server connection in Settings.")
-                        )
+                        disconnectedView
                     case .connecting, .reconnecting:
-                        ProgressView("Connecting…")
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Connecting…")
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.textSecondary)
+                        }
                     case .connected:
                         if let vm = sessionVM {
                             SessionListView(viewModel: vm)
@@ -69,5 +71,56 @@ struct ContentView: View {
         if config.isValid {
             wsService.connect(config: config)
         }
+    }
+
+    // MARK: - Disconnected
+
+    private var disconnectedView: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 100, height: 100)
+                    .overlay(
+                        Circle().stroke(Theme.border.opacity(0.5), lineWidth: 0.5)
+                    )
+
+                Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                    .font(.system(size: 40, weight: .light))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+
+            VStack(spacing: 8) {
+                Text("Not Connected")
+                    .font(.title3.bold())
+                    .foregroundStyle(Theme.textPrimary)
+
+                Text("Configure your daemon connection\nin Settings to get started.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                showSettings = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "gearshape")
+                    Text("Open Settings")
+                }
+                .font(.subheadline.bold())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(Theme.buttonDark)
+                .clipShape(Capsule())
+            }
+
+            Spacer()
+            Spacer()
+        }
+        .padding(.horizontal, Theme.paddingLg)
     }
 }
