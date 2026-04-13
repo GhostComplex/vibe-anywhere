@@ -68,6 +68,20 @@ enum KeychainService {
         let host = load(key: "host") ?? ""
         let port = Int(load(key: "port") ?? "") ?? 7842
         let token = load(key: "token") ?? ""
+
+        // If Keychain is empty, fall back to UserDefaults (for simulator / CI)
+        #if DEBUG
+        if host.isEmpty && token.isEmpty {
+            let defaults = UserDefaults.standard
+            let fbHost = defaults.string(forKey: "daemon_host") ?? ""
+            let fbPort = Int(defaults.string(forKey: "daemon_port") ?? "") ?? 7842
+            let fbToken = defaults.string(forKey: "daemon_token") ?? ""
+            if !fbHost.isEmpty {
+                return ConnectionConfig(host: fbHost, port: fbPort, token: fbToken)
+            }
+        }
+        #endif
+
         return ConnectionConfig(host: host, port: port, token: token)
     }
 }
