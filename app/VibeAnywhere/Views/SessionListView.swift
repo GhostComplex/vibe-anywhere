@@ -201,7 +201,7 @@ struct SessionListView: View {
                         .font(.headline)
                         .foregroundStyle(Theme.textPrimary)
 
-                    Text(session.cwd)
+                    Text(displayPath(session.cwd))
                         .font(.caption.monospaced())
                         .foregroundStyle(Theme.textTertiary)
                         .lineLimit(1)
@@ -264,7 +264,7 @@ struct SessionListView: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
 
-                    Text(session.cwd)
+                    Text(displayPath(session.cwd))
                         .font(.caption.monospaced())
                         .foregroundStyle(Theme.textTertiary)
                         .lineLimit(1)
@@ -287,6 +287,12 @@ struct SessionListView: View {
     }
 
     private func directoryName(_ cwd: String) -> String {
-        cwd.components(separatedBy: "/").last ?? cwd
+        if cwd.isEmpty || cwd == "/" { return "Unknown" }
+        return cwd.components(separatedBy: "/").last ?? cwd
+    }
+
+    private func displayPath(_ cwd: String) -> String {
+        if cwd.isEmpty || cwd == "/" { return "Unknown directory" }
+        return cwd
     }
 }

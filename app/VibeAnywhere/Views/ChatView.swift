@@ -133,7 +133,7 @@ struct ChatView: View {
         .padding(.horizontal, Theme.paddingMd)
         .padding(.vertical, Theme.paddingSm)
         .background(.ultraThinMaterial)
-        .shadow(color: .black.opacity(0.08), radius: 6, y: -3)
+        .shadow(color: Theme.cardShadow, radius: 4, y: -2)
     }
 
     // MARK: - Helpers

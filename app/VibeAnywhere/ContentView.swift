@@ -139,7 +139,7 @@ struct ContentView: View {
                     .multilineTextAlignment(.center)
 
                 if connectingElapsed >= 5 {
-                    Text("\(config.host):\(config.port)")
+                    Text("\(config.host):\(String(config.port))")
                         .font(.caption.monospaced())
                         .foregroundStyle(Theme.textTertiary)
                         .padding(.top, 2)
