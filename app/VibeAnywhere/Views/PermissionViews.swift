@@ -33,8 +33,8 @@ struct PermissionModalView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
-            .background(.secondary.opacity(0.1))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .background(Theme.background)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusSm, style: .continuous))
 
             // Countdown
             HStack {
@@ -69,8 +69,12 @@ struct PermissionModalView: View {
         }
         .padding()
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(radius: 10)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous)
+                .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.12), radius: 16, y: 8)
         .padding(.horizontal)
         .onReceive(timer) { _ in
             let elapsed = Date().timeIntervalSince(request.receivedAt)

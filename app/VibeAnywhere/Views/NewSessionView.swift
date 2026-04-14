@@ -64,7 +64,7 @@ struct NewSessionView: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
-                    .stroke(Theme.border, lineWidth: 1)
+                    .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
             )
         }
     }
@@ -104,7 +104,7 @@ struct NewSessionView: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
-                    .stroke(Theme.border, lineWidth: 1)
+                    .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
             )
         }
     }
@@ -142,7 +142,7 @@ struct NewSessionView: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
-                    .stroke(Theme.border, lineWidth: 1)
+                    .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
             )
         }
     }

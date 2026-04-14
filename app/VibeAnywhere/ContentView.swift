@@ -18,7 +18,7 @@ struct ContentView: View {
                     case .disconnected:
                         disconnectedView
                     case .connecting, .reconnecting:
-                        connectingView
+                        connectingOverlay
                     case .connected:
                         if let vm = sessionVM {
                             SessionListView(viewModel: vm)
@@ -37,7 +37,7 @@ struct ContentView: View {
                             .frame(width: 32, height: 32)
                             .background(Theme.surface)
                             .clipShape(Circle())
-                            .overlay(Circle().stroke(Theme.border, lineWidth: 1))
+                            .shadow(color: Theme.cardShadow, radius: 3, y: 1)
                     }
                 }
             }
@@ -98,7 +98,23 @@ struct ContentView: View {
 
     // MARK: - Connecting
 
-    private var connectingView: some View {
+    private var connectingOverlay: some View {
+        ZStack {
+            if #available(iOS 26.0, *) {
+                Color.clear
+                    .ignoresSafeArea()
+                    .glassEffect()
+            } else {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .ignoresSafeArea()
+            }
+
+            connectingContent
+        }
+    }
+
+    private var connectingContent: some View {
         VStack(spacing: 24) {
             Spacer()
 
@@ -106,9 +122,7 @@ struct ContentView: View {
                 Circle()
                     .fill(.ultraThinMaterial)
                     .frame(width: 100, height: 100)
-                    .overlay(
-                        Circle().stroke(Theme.border.opacity(0.5), lineWidth: 0.5)
-                    )
+                    .shadow(color: Theme.cardShadow, radius: 4, y: 2)
 
                 ProgressView()
                     .scaleEffect(1.3)
@@ -166,7 +180,7 @@ struct ContentView: View {
                         .padding(.vertical, 10)
                         .background(Theme.surface)
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(Theme.border, lineWidth: 1))
+                        .shadow(color: Theme.cardShadow, radius: 3, y: 1)
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -213,9 +227,7 @@ struct ContentView: View {
                 Circle()
                     .fill(.ultraThinMaterial)
                     .frame(width: 100, height: 100)
-                    .overlay(
-                        Circle().stroke(Theme.border.opacity(0.5), lineWidth: 0.5)
-                    )
+                    .shadow(color: Theme.cardShadow, radius: 4, y: 2)
 
                 Image(systemName: "antenna.radiowaves.left.and.right.slash")
                     .font(.system(size: 40, weight: .light))

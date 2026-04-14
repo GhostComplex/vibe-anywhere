@@ -4,9 +4,9 @@ import SwiftUI
 
 enum Theme {
     // Colors
-    static let background = Color(hex: 0xF2F1EE)
+    static let background = Color(hex: 0xF2F2F2)
     static let surface = Color.white
-    static let border = Color(hex: 0xE8E7E3)
+    static let border = Color(hex: 0xEBEBEB)
     static let borderLight = Color(hex: 0xF0EFEC)
     static let textPrimary = Color(hex: 0x1A1A1A)
     static let textSecondary = Color(hex: 0x666666)
@@ -27,7 +27,7 @@ enum Theme {
     static let radiusXl: CGFloat = 24
 
     // Shadows
-    static let cardShadow = Color.black.opacity(0.04)
+    static let cardShadow = Color.black.opacity(0.06)
 }
 
 // MARK: - Color Extension
@@ -50,12 +50,12 @@ struct CardStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLg))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: Theme.radiusLg)
-                    .stroke(Theme.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous)
+                    .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
             )
-            .shadow(color: Theme.cardShadow, radius: 2, y: 1)
+            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
     }
 }
 
