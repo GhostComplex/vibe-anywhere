@@ -41,6 +41,7 @@ struct EmptyStateView: View {
                     Circle()
                         .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
                 )
+                .shadow(color: Theme.cardShadow, radius: 4, y: 2)
 
             Image(systemName: "waveform.circle")
                 .font(.system(size: 36, weight: .light))

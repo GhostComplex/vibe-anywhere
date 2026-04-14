@@ -53,7 +53,7 @@ struct MessageBubble: View {
                             lineWidth: 0.5
                         )
                 )
-                .shadow(color: .black.opacity(0.06), radius: 3, y: 2)
+                .shadow(color: Theme.cardShadow, radius: 4, y: 2)
         } else {
             assistantCard
         }
@@ -99,7 +99,7 @@ struct MessageBubble: View {
                         lineWidth: 0.5
                     )
             )
-            .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
+            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
     }
 
     // MARK: - Tool Card
