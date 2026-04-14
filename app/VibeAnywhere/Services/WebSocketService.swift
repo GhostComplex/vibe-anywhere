@@ -36,6 +36,10 @@ final class WebSocketService {
         self.config = config
         state = .connecting
 
+        startWebSocket(url: url, config: config)
+    }
+
+    private func startWebSocket(url: URL, config: ConnectionConfig) {
         var request = URLRequest(url: url)
         request.setValue("Bearer \(config.token)", forHTTPHeaderField: "Authorization")
         request.setValue("2", forHTTPHeaderField: "X-Protocol-Version")
@@ -50,8 +54,6 @@ final class WebSocketService {
         let task = session.webSocketTask(with: request)
         self.wsTask = task
 
-        // Start detached receive loop — must NOT run on MainActor.
-        // Capture only the task (Sendable) and a weak reference-free callback.
         let taskRef = task
         receiveTask?.cancel()
         receiveTask = Task.detached { [weak self] in
@@ -159,7 +161,14 @@ final class WebSocketService {
             return
         }
 
-        scheduleReconnect(attempt: 1)
+        // Extract current attempt from state to increment correctly
+        let currentAttempt: Int
+        if case .reconnecting(let attempt) = state {
+            currentAttempt = attempt + 1
+        } else {
+            currentAttempt = 1
+        }
+        scheduleReconnect(attempt: currentAttempt)
     }
 
     private func scheduleReconnect(attempt: Int) {
@@ -175,8 +184,11 @@ final class WebSocketService {
             try? await Task.sleep(for: .seconds(delay))
 
             guard !Task.isCancelled else { return }
+            guard let self, let url = config.wsURL else { return }
 
-            self?.connect(config: config)
+            // Use startWebSocket directly — don't go through connect()
+            // to avoid resetting state to .connecting
+            self.startWebSocket(url: url, config: config)
         }
     }
 }
