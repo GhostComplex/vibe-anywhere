@@ -66,6 +66,7 @@ struct NewSessionView: View {
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
                     .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
             )
+            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
         }
     }
 
@@ -106,6 +107,7 @@ struct NewSessionView: View {
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
                     .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
             )
+            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
         }
     }
 
@@ -144,6 +146,7 @@ struct NewSessionView: View {
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
                     .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
             )
+            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
         }
     }
 
