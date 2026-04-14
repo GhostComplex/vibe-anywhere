@@ -24,7 +24,7 @@ struct MessageBubble: View {
                 }
             }
 
-            if message.role == .assistant { Spacer(minLength: 60) }
+            if message.role == .assistant && !message.isError { Spacer(minLength: 60) }
         }
     }
 
@@ -32,7 +32,9 @@ struct MessageBubble: View {
 
     @ViewBuilder
     private var textContent: some View {
-        if message.role == .user {
+        if message.isError {
+            errorCard
+        } else if message.role == .user {
             Text(message.text)
                 .textSelection(.enabled)
                 .foregroundStyle(Theme.textPrimary)
@@ -55,6 +57,24 @@ struct MessageBubble: View {
         } else {
             assistantCard
         }
+    }
+
+    private var errorCard: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.body)
+
+            Text(message.text)
+                .font(.subheadline)
+                .foregroundStyle(Theme.textPrimary)
+                .textSelection(.enabled)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
     }
 
     private var assistantCard: some View {

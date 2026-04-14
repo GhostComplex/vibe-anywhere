@@ -7,32 +7,32 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10001 /* VibeAnywhereApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20001; };
-		A10002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20002; };
-		A10003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20003; };
-		A10004 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20004; };
-		A10005 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20005; };
-		A10006 /* WebSocketService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20006; };
-		A10007 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20007; };
-		A10008 /* ConnectionConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20008; };
-		A10009 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20009; };
-		A10010 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20010; };
-		A10011 /* NewSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20011; };
-		A10012 /* SessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20012; };
-		A10013 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20013; };
-		A10014 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20014; };
-		A10015 /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20015; };
-		A10018 /* PermissionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20019; };
-		A10019 /* SessionSettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20020; };
-		A10021 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20021; };
-		A10022 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20022; };
-		A10023 /* MarkdownContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20023; };
-		A10016 /* ConnectionConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20016; };
-		A10017 /* MessageCodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20017; };
+		A10001 /* VibeAnywhereApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20001 /* VibeAnywhereApp.swift */; };
+		A10002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20002 /* ContentView.swift */; };
+		A10003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20003 /* Assets.xcassets */; };
+		A10004 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20004 /* Message.swift */; };
+		A10005 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20005 /* Session.swift */; };
+		A10006 /* WebSocketService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20006 /* WebSocketService.swift */; };
+		A10007 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20007 /* KeychainService.swift */; };
+		A10008 /* ConnectionConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20008 /* ConnectionConfig.swift */; };
+		A10009 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20009 /* SettingsView.swift */; };
+		A10010 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20010 /* SessionListView.swift */; };
+		A10011 /* NewSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20011 /* NewSessionView.swift */; };
+		A10012 /* SessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20012 /* SessionViewModel.swift */; };
+		A10013 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20013 /* ChatViewModel.swift */; };
+		A10014 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20014 /* ChatView.swift */; };
+		A10015 /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20015 /* MessageBubble.swift */; };
+		A10016 /* ConnectionConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20016 /* ConnectionConfigTests.swift */; };
+		A10017 /* MessageCodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20017 /* MessageCodingTests.swift */; };
+		A10018 /* PermissionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20019 /* PermissionViews.swift */; };
+		A10019 /* SessionSettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20020 /* SessionSettingsSheet.swift */; };
+		A10021 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20021 /* Theme.swift */; };
+		A10022 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20022 /* EmptyStateView.swift */; };
+		A10023 /* MarkdownContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20023 /* MarkdownContentView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		A90001 = {
+		A90001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = A50000 /* Project object */;
 			proxyType = 1;
@@ -58,14 +58,14 @@
 		A20013 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		A20014 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		A20015 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
+		A20016 /* ConnectionConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionConfigTests.swift; sourceTree = "<group>"; };
+		A20017 /* MessageCodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageCodingTests.swift; sourceTree = "<group>"; };
+		A20018 /* VibeAnywhereTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VibeAnywhereTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20019 /* PermissionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionViews.swift; sourceTree = "<group>"; };
 		A20020 /* SessionSettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSettingsSheet.swift; sourceTree = "<group>"; };
 		A20021 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		A20022 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		A20023 /* MarkdownContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownContentView.swift; sourceTree = "<group>"; };
-		A20016 /* ConnectionConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionConfigTests.swift; sourceTree = "<group>"; };
-		A20017 /* MessageCodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageCodingTests.swift; sourceTree = "<group>"; };
-		A20018 /* VibeAnywhereTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VibeAnywhereTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -145,15 +145,6 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		A40006 /* ViewModels */ = {
-			isa = PBXGroup;
-			children = (
-				A20012 /* SessionViewModel.swift */,
-				A20013 /* ChatViewModel.swift */,
-			);
-			path = ViewModels;
-			sourceTree = "<group>";
-		};
 		A40005 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -161,6 +152,15 @@
 				A20018 /* VibeAnywhereTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A40006 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				A20012 /* SessionViewModel.swift */,
+				A20013 /* ChatViewModel.swift */,
+			);
+			path = ViewModels;
 			sourceTree = "<group>";
 		};
 		A40007 /* VibeAnywhereTests */ = {
@@ -210,14 +210,6 @@
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
-
-/* Begin PBXTargetDependency section */
-		A90002 = {
-			isa = PBXTargetDependency;
-			target = A50001 /* VibeAnywhere */;
-			targetProxy = A90001;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		A50000 /* Project object */ = {
@@ -304,6 +296,14 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		A90002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A50001 /* VibeAnywhere */;
+			targetProxy = A90001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		A80001 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -326,7 +326,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
@@ -360,7 +360,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 69X4Y46GD6;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -388,7 +388,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 69X4Y46GD6;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

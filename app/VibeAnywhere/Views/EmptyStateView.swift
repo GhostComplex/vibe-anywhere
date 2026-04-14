@@ -39,7 +39,7 @@ struct EmptyStateView: View {
                 .frame(width: 80, height: 80)
                 .overlay(
                     Circle()
-                        .stroke(Theme.border, lineWidth: 1)
+                        .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
                 )
 
             Image(systemName: "waveform.circle")
@@ -71,7 +71,8 @@ struct EmptyStateView: View {
             .padding(.vertical, 10)
             .background(Theme.surface)
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(Theme.border, lineWidth: 1))
+            .overlay(Capsule().stroke(Theme.border.opacity(0.6), lineWidth: 0.5))
+            .shadow(color: Theme.cardShadow, radius: 3, y: 1)
         }
     }
 }

@@ -33,7 +33,7 @@ struct SessionListView: View {
                         .frame(width: 32, height: 32)
                         .background(Theme.surface)
                         .clipShape(Circle())
-                        .overlay(Circle().stroke(Theme.border, lineWidth: 1))
+                        .shadow(color: Theme.cardShadow, radius: 3, y: 1)
                 }
             }
             ToolbarItem(placement: .topBarLeading) {
@@ -101,9 +101,7 @@ struct SessionListView: View {
                 Circle()
                     .fill(Theme.surface)
                     .frame(width: 80, height: 80)
-                    .overlay(
-                        Circle().stroke(Theme.border, lineWidth: 1)
-                    )
+                    .shadow(color: Theme.cardShadow, radius: 4, y: 2)
 
                 Image(systemName: "waveform.circle")
                     .font(.system(size: 36, weight: .light))
@@ -236,9 +234,9 @@ struct SessionListView: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous)
-                    .stroke(Theme.border, lineWidth: 1)
+                    .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
             )
-            .shadow(color: Theme.cardShadow, radius: 2, y: 1)
+            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
         }
         .buttonStyle(.plain)
         .contextMenu {
