@@ -186,12 +186,13 @@ struct MarkdownContentView: View {
                 }
             }
         }
-        .background(Color(hex: 0xF7F6F3))
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusSm, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: Theme.radiusSm, style: .continuous)
                 .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
         )
+        .shadow(color: Theme.cardShadow, radius: 4, y: 2)
     }
 
     private func codeBlockHeader(language: String, code: String) -> some View {
@@ -206,7 +207,7 @@ struct MarkdownContentView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color(hex: 0xE8E7E3).opacity(0.5))
+        .background(.ultraThinMaterial)
     }
 }
 
