@@ -4,6 +4,7 @@ struct ChatView: View {
     let viewModel: ChatViewModel
     @State private var inputText = ""
     @State private var showSettings = false
+    @State private var scrollTask: Task<Void, Never>?
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
@@ -22,9 +23,9 @@ struct ChatView: View {
 
                 usageBar
 
-                Divider().foregroundStyle(Theme.borderLight)
-
-                inputBar
+                if !viewModel.hasError {
+                    inputBar
+                }
             }
         }
         .navigationTitle(viewModel.sessionAgent.capitalized)
@@ -61,33 +62,18 @@ struct ChatView: View {
     // MARK: - Messages
 
     private var messageList: some View {
-        ZStack(alignment: .top) {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(viewModel.messages) { message in
-                            MessageBubble(message: message)
-                                .id(message.id)
-                        }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(viewModel.messages) { message in
+                        MessageBubble(message: message)
+                            .id(message.id)
                     }
-                    .padding()
                 }
-                .onChange(of: viewModel.messages.count) { _, _ in scrollToBottom(proxy) }
-                .onChange(of: viewModel.messages.last?.text) { _, _ in scrollToBottom(proxy) }
+                .padding()
             }
-
-            // Liquid glass top blur
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .frame(height: 40)
-                .mask(
-                    LinearGradient(
-                        colors: [.black, .clear],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .allowsHitTesting(false)
+            .onChange(of: viewModel.messages.count) { _, _ in debouncedScroll(proxy) }
+            .onChange(of: viewModel.messages.last?.text) { _, _ in debouncedScroll(proxy) }
         }
     }
 
@@ -145,7 +131,8 @@ struct ChatView: View {
         }
         .padding(.horizontal, Theme.paddingMd)
         .padding(.vertical, Theme.paddingSm)
-        .background(.ultraThinMaterial)
+        .background(Theme.surface)
+        .shadow(color: .black.opacity(0.08), radius: 6, y: -3)
     }
 
     // MARK: - Helpers
@@ -154,6 +141,15 @@ struct ChatView: View {
         let text = inputText
         inputText = ""
         viewModel.sendMessage(text)
+    }
+
+    private func debouncedScroll(_ proxy: ScrollViewProxy) {
+        scrollTask?.cancel()
+        scrollTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(16))
+            guard !Task.isCancelled else { return }
+            scrollToBottom(proxy)
+        }
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
