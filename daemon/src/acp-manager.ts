@@ -7,12 +7,14 @@ import * as acp from '@agentclientprotocol/sdk';
 // ── Events emitted by AcpManager ──
 
 export type AcpManagerEvent =
-  | { type: 'text'; sessionId: string; content: string }
-  | { type: 'tool_call'; sessionId: string; toolCallId: string; title: string; status: string; input?: Record<string, unknown> }
-  | { type: 'tool_call_update'; sessionId: string; toolCallId: string; status: string; content?: string }
+  | { type: 'text'; sessionId: string; content: string; replay?: boolean }
+  | { type: 'user_text'; sessionId: string; content: string; replay?: boolean }
+  | { type: 'tool_call'; sessionId: string; toolCallId: string; title: string; status: string; input?: Record<string, unknown>; replay?: boolean }
+  | { type: 'tool_call_update'; sessionId: string; toolCallId: string; status: string; content?: string; replay?: boolean }
   | { type: 'permission_request'; sessionId: string; requestId: string; toolTitle: string; options: Array<{ optionId: string; name: string; kind: string }> }
   | { type: 'usage'; sessionId: string; inputTokens: number; outputTokens: number }
   | { type: 'turn_end'; sessionId: string; stopReason: string }
+  | { type: 'replay_end'; sessionId: string }
   | { type: 'error'; sessionId: string | null; message: string }
   | { type: 'agent_exit'; agent: string; code: number | null };
 
@@ -32,6 +34,11 @@ interface AgentProcess {
   connection: acp.ClientSideConnection;
   initialized: boolean;
   sessions: Set<string>;    // sessionIds managed by this process
+  capabilities: {
+    listSessions: boolean;
+    resumeSession: boolean;
+    loadSession: boolean;
+  };
 }
 
 // Pending permission requests awaiting iOS response
@@ -50,6 +57,7 @@ interface PendingPermission {
 export class AcpManager extends EventEmitter {
   private agents = new Map<string, AgentProcess>();
   private pendingPermissions = new Map<string, PendingPermission>();
+  private replayingSessions = new Set<string>();
   private readonly config: AcpManagerConfig;
 
   constructor(config: AcpManagerConfig) {
@@ -112,6 +120,11 @@ export class AcpManager extends EventEmitter {
       connection: null as unknown as acp.ClientSideConnection,
       initialized: false,
       sessions: new Set(),
+      capabilities: {
+        listSessions: false,
+        resumeSession: false,
+        loadSession: false,
+      },
     };
 
     // Build ACP client that handles callbacks
@@ -146,6 +159,18 @@ export class AcpManager extends EventEmitter {
       });
       agentProc.initialized = true;
       console.log(`[acp-mgr] Agent "${agent}" initialized (protocol v${initResult.protocolVersion})`);
+
+      // Extract capabilities
+      const caps = initResult.agentCapabilities;
+      if (caps) {
+        agentProc.capabilities.loadSession = !!(caps as Record<string, unknown>).loadSession;
+        const sessionCaps = (caps as Record<string, unknown>).sessionCapabilities as Record<string, unknown> | undefined;
+        if (sessionCaps) {
+          agentProc.capabilities.listSessions = !!sessionCaps.list;
+          agentProc.capabilities.resumeSession = !!sessionCaps.resume;
+        }
+      }
+      console.log(`[acp-mgr] Agent "${agent}" capabilities: ${JSON.stringify(agentProc.capabilities)}`);
     } catch (err) {
       console.error(`[acp-mgr] Initialize failed for "${agent}":`, err);
       proc.kill('SIGTERM');
@@ -192,13 +217,66 @@ export class AcpManager extends EventEmitter {
     return { sessionId: result.sessionId };
   }
 
-  async loadSession(agent: string, sessionId: string): Promise<void> {
+  async loadSession(agent: string, sessionId: string, cwd: string): Promise<void> {
     await this.ensureAgent(agent);
     const agentProc = this.agents.get(agent)!;
 
-    await agentProc.connection.loadSession({ sessionId });
+    await agentProc.connection.loadSession({ sessionId, cwd, mcpServers: [] });
     agentProc.sessions.add(sessionId);
     console.log(`[acp-mgr] Session loaded: ${sessionId} (agent: ${agent})`);
+  }
+
+  async listHostSessions(agent: string): Promise<{ sessions: Array<{ sessionId: string; cwd: string; title?: string; updatedAt?: string }>; supported: boolean }> {
+    await this.ensureAgent(agent);
+    const agentProc = this.agents.get(agent)!;
+
+    if (!agentProc.capabilities.listSessions) {
+      return { sessions: [], supported: false };
+    }
+
+    const allSessions: Array<{ sessionId: string; cwd: string; title?: string; updatedAt?: string }> = [];
+    let cursor: string | undefined;
+
+    do {
+      const result = await agentProc.connection.listSessions({ cursor });
+      for (const s of result.sessions) {
+        allSessions.push({
+          sessionId: s.sessionId,
+          cwd: s.cwd,
+          title: s.title ?? undefined,
+          updatedAt: s.updatedAt ?? undefined,
+        });
+      }
+      cursor = result.nextCursor ?? undefined;
+    } while (cursor);
+
+    console.log(`[acp-mgr] Listed ${allSessions.length} host sessions for agent "${agent}"`);
+    return { sessions: allSessions, supported: true };
+  }
+
+  async resumeHostSession(agent: string, sessionId: string, cwd: string): Promise<{ sessionId: string }> {
+    await this.ensureAgent(agent);
+    const agentProc = this.agents.get(agent)!;
+
+    if (!agentProc.capabilities.loadSession) {
+      throw new Error(`Agent "${agent}" does not support session load`);
+    }
+
+    // Mark session as replaying so handleSessionUpdate tags events with replay=true
+    this.replayingSessions.add(sessionId);
+
+    try {
+      await agentProc.connection.loadSession({ sessionId, cwd, mcpServers: [] });
+      console.log(`[acp-mgr] Host session loaded (loadSession): ${sessionId}`);
+    } finally {
+      this.replayingSessions.delete(sessionId);
+    }
+
+    // Signal that history replay is complete
+    this.emit('event', { type: 'replay_end', sessionId } satisfies AcpManagerEvent);
+
+    agentProc.sessions.add(sessionId);
+    return { sessionId };
   }
 
   async closeSession(agent: string, sessionId: string): Promise<void> {
@@ -353,14 +431,28 @@ export class AcpManager extends EventEmitter {
   private handleSessionUpdate(params: acp.SessionNotification): void {
     const sessionId = params.sessionId;
     const update = params.update;
+    const replay = this.replayingSessions.has(sessionId) || undefined;
 
     switch (update.sessionUpdate) {
+      case 'user_message_chunk': {
+        if (update.content.type === 'text') {
+          this.emit('event', {
+            type: 'user_text',
+            sessionId,
+            content: update.content.text,
+            replay,
+          } satisfies AcpManagerEvent);
+        }
+        break;
+      }
+
       case 'agent_message_chunk': {
         if (update.content.type === 'text') {
           this.emit('event', {
             type: 'text',
             sessionId,
             content: update.content.text,
+            replay,
           } satisfies AcpManagerEvent);
         }
         break;
@@ -373,6 +465,7 @@ export class AcpManager extends EventEmitter {
           toolCallId: update.toolCallId,
           title: update.title,
           status: update.status ?? 'running',
+          replay,
         } satisfies AcpManagerEvent);
         break;
       }
@@ -383,12 +476,13 @@ export class AcpManager extends EventEmitter {
           sessionId,
           toolCallId: update.toolCallId,
           status: update.status ?? 'running',
+          replay,
         } satisfies AcpManagerEvent);
         break;
       }
 
       default:
-        // plan, agent_thought_chunk, user_message_chunk — skip for now
+        // plan, agent_thought_chunk, etc. — skip for now
         break;
     }
   }

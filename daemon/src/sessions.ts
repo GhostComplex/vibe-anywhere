@@ -77,6 +77,12 @@ export class SessionManager {
       case 'permission/respond':
         this.respondPermission(ws, msg.requestId, msg.optionId);
         break;
+      case 'host-session/list':
+        void this.listHostSessions(ws, msg.agent ?? this.config.defaultAgent);
+        break;
+      case 'host-session/resume':
+        void this.resumeHostSession(ws, msg.sessionId, msg.cwd, msg.agent ?? this.config.defaultAgent);
+        break;
     }
   }
 
@@ -242,6 +248,59 @@ export class SessionManager {
     console.log(`[session] Destroyed ${sessionId}`);
   }
 
+  private async listHostSessions(ws: WebSocket, agent: string): Promise<void> {
+    try {
+      const result = await this.acpManager.listHostSessions(agent);
+
+      // Filter out sessions already tracked by the daemon
+      const activeIds = new Set(this.sessions.keys());
+      const filtered = result.sessions.filter((s) => !activeIds.has(s.sessionId));
+
+      send(ws, { type: 'host-session/list', sessions: filtered, supported: result.supported });
+    } catch (err) {
+      sendError(ws, `Failed to list host sessions: ${(err as Error).message}`);
+    }
+  }
+
+  private async resumeHostSession(ws: WebSocket, sessionId: string, cwd: string, agent: string): Promise<void> {
+    // If already tracked, just re-attach the WS client
+    if (this.sessions.has(sessionId)) {
+      this.resumeSession(ws, sessionId);
+      return;
+    }
+
+    const resolved = this.resolveCwd(cwd);
+    if (!resolved) {
+      sendError(ws, `Directory not allowed: ${cwd}`);
+      return;
+    }
+
+    // Register session BEFORE loadSession so replay events can be relayed
+    const session: Session = {
+      info: {
+        sessionId,
+        cwd: resolved,
+        agent,
+        createdAt: Date.now(),
+        lastMessageAt: Date.now(),
+      },
+      client: ws,
+      reconnectTimer: null,
+    };
+    this.sessions.set(sessionId, session);
+
+    try {
+      await this.acpManager.resumeHostSession(agent, sessionId, resolved);
+
+      console.log(`[session] Resumed host session ${sessionId} (agent: ${agent}) in ${resolved}`);
+      send(ws, { type: 'session/created', sessionId, cwd: resolved });
+    } catch (err) {
+      // Roll back on failure
+      this.sessions.delete(sessionId);
+      sendError(ws, `Failed to resume host session: ${(err as Error).message}`);
+    }
+  }
+
   // ── Event relay ──
 
   private relayEvent(event: AcpManagerEvent): void {
@@ -262,7 +321,10 @@ export class SessionManager {
 
     switch (event.type) {
       case 'text':
-        send(ws, { type: 'event/text', sessionId, content: event.content });
+        send(ws, { type: 'event/text', sessionId, content: event.content, ...(event.replay && { replay: true }) });
+        break;
+      case 'user_text':
+        send(ws, { type: 'event/user_text', sessionId, content: event.content, ...(event.replay && { replay: true }) });
         break;
       case 'tool_call':
         send(ws, {
@@ -271,6 +333,7 @@ export class SessionManager {
           toolCallId: event.toolCallId,
           tool: event.title,
           status: event.status,
+          ...(event.replay && { replay: true }),
         });
         break;
       case 'tool_call_update':
@@ -279,7 +342,11 @@ export class SessionManager {
           sessionId,
           toolCallId: event.toolCallId,
           status: event.status,
+          ...(event.replay && { replay: true }),
         });
+        break;
+      case 'replay_end':
+        send(ws, { type: 'event/replay_end', sessionId });
         break;
       case 'permission_request':
         send(ws, {

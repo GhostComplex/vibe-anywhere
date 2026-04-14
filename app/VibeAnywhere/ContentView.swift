@@ -60,6 +60,11 @@ struct ContentView: View {
                     vm.onSelectSession = { sessionId in
                         selectedSessionId = sessionId
                     }
+                    vm.onSessionDestroyed = { sessionId in
+                        if selectedSessionId == sessionId {
+                            selectedSessionId = nil
+                        }
+                    }
                     sessionVM = vm
                 }
                 handleTimerForState(newState)

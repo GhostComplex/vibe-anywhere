@@ -56,6 +56,7 @@ struct PermissionRecord: Identifiable, Sendable {
 final class ChatViewModel {
     private(set) var messages: [ChatMessage] = []
     private(set) var isWaiting = false
+    var isLoadingHistory = false
     private(set) var turnUsage: TurnUsage?
     private(set) var sessionAgent: String = "claude"
     private(set) var currentModel: String?
@@ -143,17 +144,40 @@ final class ChatViewModel {
     func handleDaemonMessage(_ msg: DaemonMessage) {
         switch msg {
         // Events
-        case .eventText(let sid, let content):
+        case .eventText(let sid, let content, let replay):
             guard sid == sessionId else { return }
-            appendToStreaming(content)
+            if replay {
+                appendReplayAssistantText(content)
+            } else {
+                appendToStreaming(content)
+            }
 
-        case .eventToolCall(let sid, let toolCallId, let tool, let status):
+        case .eventUserText(let sid, let content, let replay):
             guard sid == sessionId else { return }
-            appendToolCallV2(toolCallId: toolCallId, tool: tool, status: status)
+            if replay {
+                appendReplayUserMessage(content)
+            }
+            // Non-replay user_text is not expected (user messages are added locally)
 
-        case .eventToolCallUpdate(let sid, let toolCallId, let status, _):
+        case .eventToolCall(let sid, let toolCallId, let tool, let status, let replay):
             guard sid == sessionId else { return }
-            updateToolCall(toolCallId: toolCallId, status: status)
+            if replay {
+                appendReplayToolCall(toolCallId: toolCallId, tool: tool, status: status)
+            } else {
+                appendToolCallV2(toolCallId: toolCallId, tool: tool, status: status)
+            }
+
+        case .eventToolCallUpdate(let sid, let toolCallId, let status, _, let replay):
+            guard sid == sessionId else { return }
+            if replay {
+                updateReplayToolCall(toolCallId: toolCallId, status: status)
+            } else {
+                updateToolCall(toolCallId: toolCallId, status: status)
+            }
+
+        case .eventReplayEnd(let sid):
+            guard sid == sessionId else { return }
+            isLoadingHistory = false
 
         case .eventPermissionRequest(let sid, let requestId, let tool, let options):
             guard sid == sessionId else { return }
@@ -241,6 +265,54 @@ final class ChatViewModel {
             messages.append(ChatMessage(role: .assistant, text: "⚠️ \(message)"))
         }
         isWaiting = false
+    }
+
+    // MARK: - Replay (history) helpers
+
+    private func appendReplayUserMessage(_ text: String) {
+        // Each user_message_chunk during replay may be a new user message
+        // or a continuation of the current one. ACP sends all chunks for a single
+        // message before moving to the next, so append to the last user message
+        // if it exists and is the most recent message.
+        if let lastIndex = messages.indices.last,
+           messages[lastIndex].role == .user {
+            messages[lastIndex].text += text
+        } else {
+            messages.append(ChatMessage(role: .user, text: text))
+        }
+    }
+
+    private func appendReplayAssistantText(_ text: String) {
+        // Append to the last assistant message if it's the most recent,
+        // otherwise start a new one. All replay messages are finalized (non-streaming).
+        if let lastIndex = messages.indices.last,
+           messages[lastIndex].role == .assistant {
+            messages[lastIndex].text += text
+        } else {
+            messages.append(ChatMessage(role: .assistant, text: text))
+        }
+    }
+
+    private func appendReplayToolCall(toolCallId: String, tool: String, status: String) {
+        // Ensure there's an assistant message to attach the tool call to
+        if messages.isEmpty || messages.last?.role != .assistant {
+            messages.append(ChatMessage(role: .assistant, text: ""))
+        }
+        let lastIndex = messages.indices.last!
+        messages[lastIndex].toolUses.append(
+            ToolUseInfo(id: toolCallId, tool: tool, status: status)
+        )
+    }
+
+    private func updateReplayToolCall(toolCallId: String, status: String?) {
+        // Find the tool call across all messages (replay order may differ)
+        for i in messages.indices.reversed() {
+            if let toolIndex = messages[i].toolUses.firstIndex(where: { $0.id == toolCallId }),
+               let status {
+                messages[i].toolUses[toolIndex].status = status
+                return
+            }
+        }
     }
 
     // MARK: - Permission handling
