@@ -75,7 +75,6 @@ export class AcpManager extends EventEmitter {
   // Map agent name → ACP adapter package (what acpx uses internally)
   private static readonly ACP_AGENTS: Record<string, string> = {
     claude: '@agentclientprotocol/claude-agent-acp',
-    codex: '@zed-industries/codex-acp',
   };
 
   private async spawnAgent(agent: string): Promise<AgentProcess> {

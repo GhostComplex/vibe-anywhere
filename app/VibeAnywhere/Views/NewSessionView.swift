@@ -10,7 +10,7 @@ struct NewSessionView: View {
 
     private static let favoritesKey = "savedDirectories"
 
-    private let agents = ["claude", "codex", "gemini"]
+    private let agents = ["claude"]
 
     var body: some View {
         NavigationStack {
@@ -189,8 +189,6 @@ struct NewSessionView: View {
     private func agentIcon(for agent: String) -> String {
         switch agent {
         case "claude": return "brain.head.profile"
-        case "codex": return "terminal"
-        case "gemini": return "sparkles"
         default: return "cpu"
         }
     }
