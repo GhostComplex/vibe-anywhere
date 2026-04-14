@@ -22,8 +22,6 @@ struct ChatView: View {
 
                 usageBar
 
-                Divider().foregroundStyle(Theme.borderLight)
-
                 inputBar
             }
         }
@@ -145,7 +143,13 @@ struct ChatView: View {
         }
         .padding(.horizontal, Theme.paddingMd)
         .padding(.vertical, Theme.paddingSm)
-        .background(.ultraThinMaterial)
+        .background {
+            if #available(iOS 26.0, *) {
+                Color.clear.glassEffect()
+            } else {
+                Rectangle().fill(.ultraThinMaterial)
+            }
+        }
     }
 
     // MARK: - Helpers
