@@ -75,6 +75,11 @@ struct MessageBubble: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.orange.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                .stroke(Color.orange.opacity(0.2), lineWidth: 0.5)
+        )
+        .shadow(color: Theme.cardShadow, radius: 3, y: 1)
     }
 
     private var assistantCard: some View {
@@ -121,6 +126,7 @@ struct MessageBubble: View {
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Theme.border.opacity(0.5), lineWidth: 0.5))
+        .shadow(color: Theme.cardShadow, radius: 2, y: 1)
     }
 
     private func statusColor(_ status: String) -> Color {
