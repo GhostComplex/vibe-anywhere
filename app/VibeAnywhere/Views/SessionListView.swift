@@ -3,13 +3,15 @@ import SwiftUI
 struct SessionListView: View {
     let viewModel: SessionViewModel
     @State private var showNewSession = false
+    @State private var sessionToDelete: String?
+    @State private var showDeleteAll = false
 
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
             Group {
-                if viewModel.sessions.isEmpty && !viewModel.isLoading {
+                if viewModel.sessions.isEmpty && viewModel.hostSessions.isEmpty && !viewModel.isLoading {
                     emptyState
                 } else {
                     sessionsList
@@ -34,6 +36,40 @@ struct SessionListView: View {
                         .overlay(Circle().stroke(Theme.border, lineWidth: 1))
                 }
             }
+            ToolbarItem(placement: .topBarLeading) {
+                if !viewModel.sessions.isEmpty {
+                    Button(role: .destructive) {
+                        showDeleteAll = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                }
+            }
+        }
+        .alert("Delete All Sessions?", isPresented: $showDeleteAll) {
+            Button("Delete All", role: .destructive) {
+                viewModel.destroyAllSessions()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will end all active sessions. This cannot be undone.")
+        }
+        .alert("Delete Session?", isPresented: .init(
+            get: { sessionToDelete != nil },
+            set: { if !$0 { sessionToDelete = nil } }
+        )) {
+            Button("Delete", role: .destructive) {
+                if let id = sessionToDelete {
+                    viewModel.destroySession(id)
+                    sessionToDelete = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                sessionToDelete = nil
+            }
+        } message: {
+            Text("This session will be ended and removed.")
         }
         .sheet(isPresented: $showNewSession) {
             NewSessionView(viewModel: viewModel) {
@@ -111,12 +147,24 @@ struct SessionListView: View {
     private var sessionsList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                sectionHeader("ACTIVE")
+                if !viewModel.sessions.isEmpty {
+                    sectionHeader("ACTIVE")
 
-                ForEach(viewModel.sessions) { session in
-                    sessionCard(session)
-                        .padding(.horizontal, Theme.paddingMd)
-                        .padding(.bottom, Theme.paddingSm)
+                    ForEach(viewModel.sessions) { session in
+                        sessionCard(session)
+                            .padding(.horizontal, Theme.paddingMd)
+                            .padding(.bottom, Theme.paddingSm)
+                    }
+                }
+
+                if !viewModel.hostSessions.isEmpty {
+                    sectionHeader("RECENT")
+
+                    ForEach(viewModel.hostSessions) { session in
+                        hostSessionCard(session)
+                            .padding(.horizontal, Theme.paddingMd)
+                            .padding(.bottom, Theme.paddingSm)
+                    }
                 }
             }
             .padding(.top, Theme.paddingSm)
@@ -172,6 +220,16 @@ struct SessionListView: View {
                     .padding(.vertical, 4)
                     .background(Theme.background)
                     .clipShape(Capsule())
+
+                // Delete button
+                Button(role: .destructive) {
+                    sessionToDelete = session.sessionId
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(Theme.textTertiary)
+                }
+                .buttonStyle(.plain)
             }
             .padding(Theme.paddingMd)
             .background(Theme.surface)
@@ -185,11 +243,49 @@ struct SessionListView: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button(role: .destructive) {
-                viewModel.destroySession(session.sessionId)
+                sessionToDelete = session.sessionId
             } label: {
                 Label("Delete", systemImage: "trash")
             }
         }
+    }
+
+    private func hostSessionCard(_ session: HostSessionInfo) -> some View {
+        Button {
+            viewModel.resumeHostSession(session)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.title3)
+                    .foregroundStyle(Theme.textTertiary)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(session.displayTitle)
+                        .font(.headline)
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    Text(session.cwd)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(Theme.textTertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                Spacer(minLength: 4)
+
+                if let date = session.relativeDate {
+                    Text(date)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.textTertiary)
+                        .layoutPriority(1)
+                }
+            }
+            .padding(Theme.paddingMd)
+            .cardStyle()
+        }
+        .buttonStyle(.plain)
     }
 
     private func directoryName(_ cwd: String) -> String {

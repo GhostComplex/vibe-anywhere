@@ -12,6 +12,8 @@ enum ClientMessage: Encodable {
     case sessionSetMode(sessionId: String, mode: String)
     case sessionSetModel(sessionId: String, model: String)
     case permissionRespond(sessionId: String, requestId: String, optionId: String)
+    case hostSessionList(agent: String? = nil)
+    case hostSessionResume(sessionId: String, cwd: String, agent: String? = nil)
 
     private enum CodingKeys: String, CodingKey {
         case type, cwd, agent, sessionId, content, mode, model, requestId, optionId
@@ -52,6 +54,14 @@ enum ClientMessage: Encodable {
             try container.encode(sessionId, forKey: .sessionId)
             try container.encode(requestId, forKey: .requestId)
             try container.encode(optionId, forKey: .optionId)
+        case .hostSessionList(let agent):
+            try container.encode("host-session/list", forKey: .type)
+            try container.encodeIfPresent(agent, forKey: .agent)
+        case .hostSessionResume(let sessionId, let cwd, let agent):
+            try container.encode("host-session/resume", forKey: .type)
+            try container.encode(sessionId, forKey: .sessionId)
+            try container.encode(cwd, forKey: .cwd)
+            try container.encodeIfPresent(agent, forKey: .agent)
         }
     }
 }
@@ -65,14 +75,17 @@ enum DaemonMessage {
     case sessionList(sessions: [SessionInfo])
     case error(message: String, sessionId: String?)
     // Events
-    case eventText(sessionId: String, content: String)
-    case eventToolCall(sessionId: String, toolCallId: String, tool: String, status: String)
-    case eventToolCallUpdate(sessionId: String, toolCallId: String, status: String?, content: String?)
+    case eventText(sessionId: String, content: String, replay: Bool)
+    case eventUserText(sessionId: String, content: String, replay: Bool)
+    case eventToolCall(sessionId: String, toolCallId: String, tool: String, status: String, replay: Bool)
+    case eventToolCallUpdate(sessionId: String, toolCallId: String, status: String?, content: String?, replay: Bool)
     case eventPermissionRequest(sessionId: String, requestId: String, tool: String, options: [PermissionOption])
     case eventUsage(sessionId: String, inputTokens: Int, outputTokens: Int)
     case eventTurnEnd(sessionId: String, stopReason: String)
+    case eventReplayEnd(sessionId: String)
     case eventError(sessionId: String, message: String)
     case eventSessionInfo(sessionId: String, agent: String, models: [String]?, modes: [String]?)
+    case hostSessionList(sessions: [HostSessionInfo], supported: Bool)
     // Unknown — forward compat
     case unknown(type: String)
 }
@@ -89,7 +102,7 @@ extension DaemonMessage: Decodable {
     private enum CodingKeys: String, CodingKey {
         case type, sessionId, cwd, sessions, content, tool, message, version
         case toolCallId, status, requestId, options, agent, models, modes
-        case inputTokens, outputTokens, stopReason
+        case inputTokens, outputTokens, stopReason, supported, replay
     }
 
     init(from decoder: Decoder) throws {
@@ -117,19 +130,27 @@ extension DaemonMessage: Decodable {
         case "event/text":
             let sessionId = try container.decode(String.self, forKey: .sessionId)
             let content = try container.decode(String.self, forKey: .content)
-            self = .eventText(sessionId: sessionId, content: content)
+            let replay = try container.decodeIfPresent(Bool.self, forKey: .replay) ?? false
+            self = .eventText(sessionId: sessionId, content: content, replay: replay)
+        case "event/user_text":
+            let sessionId = try container.decode(String.self, forKey: .sessionId)
+            let content = try container.decode(String.self, forKey: .content)
+            let replay = try container.decodeIfPresent(Bool.self, forKey: .replay) ?? false
+            self = .eventUserText(sessionId: sessionId, content: content, replay: replay)
         case "event/tool_call":
             let sessionId = try container.decode(String.self, forKey: .sessionId)
             let toolCallId = try container.decode(String.self, forKey: .toolCallId)
             let tool = try container.decode(String.self, forKey: .tool)
             let status = try container.decode(String.self, forKey: .status)
-            self = .eventToolCall(sessionId: sessionId, toolCallId: toolCallId, tool: tool, status: status)
+            let replay = try container.decodeIfPresent(Bool.self, forKey: .replay) ?? false
+            self = .eventToolCall(sessionId: sessionId, toolCallId: toolCallId, tool: tool, status: status, replay: replay)
         case "event/tool_call_update":
             let sessionId = try container.decode(String.self, forKey: .sessionId)
             let toolCallId = try container.decode(String.self, forKey: .toolCallId)
             let status = try container.decodeIfPresent(String.self, forKey: .status)
             let content = try container.decodeIfPresent(String.self, forKey: .content)
-            self = .eventToolCallUpdate(sessionId: sessionId, toolCallId: toolCallId, status: status, content: content)
+            let replay = try container.decodeIfPresent(Bool.self, forKey: .replay) ?? false
+            self = .eventToolCallUpdate(sessionId: sessionId, toolCallId: toolCallId, status: status, content: content, replay: replay)
         case "event/permission_request":
             let sessionId = try container.decode(String.self, forKey: .sessionId)
             let requestId = try container.decode(String.self, forKey: .requestId)
@@ -145,6 +166,9 @@ extension DaemonMessage: Decodable {
             let sessionId = try container.decode(String.self, forKey: .sessionId)
             let stopReason = try container.decode(String.self, forKey: .stopReason)
             self = .eventTurnEnd(sessionId: sessionId, stopReason: stopReason)
+        case "event/replay_end":
+            let sessionId = try container.decode(String.self, forKey: .sessionId)
+            self = .eventReplayEnd(sessionId: sessionId)
         case "event/error":
             let sessionId = try container.decode(String.self, forKey: .sessionId)
             let message = try container.decode(String.self, forKey: .message)
@@ -155,6 +179,10 @@ extension DaemonMessage: Decodable {
             let models = try container.decodeIfPresent([String].self, forKey: .models)
             let modes = try container.decodeIfPresent([String].self, forKey: .modes)
             self = .eventSessionInfo(sessionId: sessionId, agent: agent, models: models, modes: modes)
+        case "host-session/list":
+            let sessions = try container.decode([HostSessionInfo].self, forKey: .sessions)
+            let supported = try container.decode(Bool.self, forKey: .supported)
+            self = .hostSessionList(sessions: sessions, supported: supported)
         default:
             self = .unknown(type: type)
         }

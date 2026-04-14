@@ -50,6 +50,18 @@ export interface PermissionRespondMsg {
   optionId: string;
 }
 
+export interface HostSessionListMsg {
+  type: 'host-session/list';
+  agent?: string;
+}
+
+export interface HostSessionResumeMsg {
+  type: 'host-session/resume';
+  sessionId: string;
+  cwd: string;
+  agent?: string;
+}
+
 export type ClientMessage =
   | SessionCreateMsg
   | SessionListMsg
@@ -59,7 +71,9 @@ export type ClientMessage =
   | SessionCancelMsg
   | SessionSetModeMsg
   | SessionSetModelMsg
-  | PermissionRespondMsg;
+  | PermissionRespondMsg
+  | HostSessionListMsg
+  | HostSessionResumeMsg;
 
 // ── Daemon → Client messages ──
 
@@ -89,6 +103,14 @@ export interface EventTextMsg {
   type: 'event/text';
   sessionId: string;
   content: string;
+  replay?: boolean;
+}
+
+export interface EventUserTextMsg {
+  type: 'event/user_text';
+  sessionId: string;
+  content: string;
+  replay?: boolean;
 }
 
 export interface EventToolCallMsg {
@@ -99,6 +121,7 @@ export interface EventToolCallMsg {
   status: string;
   input?: Record<string, unknown>;
   content?: string;
+  replay?: boolean;
 }
 
 export interface EventToolCallUpdateMsg {
@@ -107,6 +130,7 @@ export interface EventToolCallUpdateMsg {
   toolCallId: string;
   status?: string;
   content?: string;
+  replay?: boolean;
 }
 
 export interface EventPermissionRequestMsg {
@@ -130,6 +154,11 @@ export interface EventTurnEndMsg {
   stopReason: string;
 }
 
+export interface EventReplayEndMsg {
+  type: 'event/replay_end';
+  sessionId: string;
+}
+
 export interface EventErrorMsg {
   type: 'event/error';
   sessionId: string;
@@ -149,6 +178,17 @@ export interface HelloMsg {
   version: number;
 }
 
+export interface HostSessionListResponseMsg {
+  type: 'host-session/list';
+  sessions: Array<{
+    sessionId: string;
+    cwd: string;
+    title?: string;
+    updatedAt?: string;
+  }>;
+  supported: boolean;
+}
+
 export type DaemonMessage =
   | HelloMsg
   | SessionCreatedMsg
@@ -156,13 +196,16 @@ export type DaemonMessage =
   | SessionListResponseMsg
   | ErrorMsg
   | EventTextMsg
+  | EventUserTextMsg
   | EventToolCallMsg
   | EventToolCallUpdateMsg
   | EventPermissionRequestMsg
   | EventUsageMsg
   | EventTurnEndMsg
+  | EventReplayEndMsg
   | EventErrorMsg
-  | EventSessionInfoMsg;
+  | EventSessionInfoMsg
+  | HostSessionListResponseMsg;
 
 // ── Type guards ──
 
@@ -171,6 +214,7 @@ const VALID_CLIENT_TYPES = [
   'session/message', 'session/destroy',
   'session/cancel', 'session/set-mode', 'session/set-model',
   'permission/respond',
+  'host-session/list', 'host-session/resume',
 ];
 
 export function isClientMessage(msg: unknown): msg is ClientMessage {

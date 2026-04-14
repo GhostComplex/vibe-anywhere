@@ -5,6 +5,8 @@ import Observation
 @MainActor
 final class SessionViewModel {
     private(set) var sessions: [SessionInfo] = []
+    private(set) var hostSessions: [HostSessionInfo] = []
+    private(set) var hostSessionsSupported = true
     private(set) var isLoading = false
     private(set) var error: String?
 
@@ -21,6 +23,9 @@ final class SessionViewModel {
     /// Callback when a session is created or tapped (navigate to chat)
     var onSelectSession: ((String) -> Void)?
 
+    /// Callback when a session is destroyed (pop navigation if viewing it)
+    var onSessionDestroyed: ((String) -> Void)?
+
     init(wsService: WebSocketService) {
         self.wsService = wsService
         wsService.onMessage = { [weak self] msg in
@@ -32,6 +37,7 @@ final class SessionViewModel {
 
     func refreshSessions() {
         wsService.send(.sessionList)
+        wsService.send(.hostSessionList())
         isLoading = true
     }
 
@@ -48,11 +54,36 @@ final class SessionViewModel {
         if activeChatVM?.sessionId == sessionId {
             activeChatVM = nil
         }
+        onSessionDestroyed?(sessionId)
+    }
+
+    func destroyAllSessions() {
+        let ids = sessions.map(\.sessionId)
+        for session in sessions {
+            wsService.send(.sessionDestroy(sessionId: session.sessionId))
+        }
+        sessions.removeAll()
+        chatVMs.removeAll()
+        chatVMOrder.removeAll()
+        activeChatVM = nil
+        for id in ids {
+            onSessionDestroyed?(id)
+        }
     }
 
     func resumeSession(_ sessionId: String) {
         wsService.send(.sessionResume(sessionId: sessionId))
         onSelectSession?(sessionId)
+    }
+
+    func resumeHostSession(_ session: HostSessionInfo) {
+        // Pre-create chatVM so it receives replay events before session/created arrives
+        let chatVM = chatViewModel(for: session.sessionId)
+        chatVM.isLoadingHistory = true
+        wsService.send(.hostSessionResume(sessionId: session.sessionId, cwd: session.cwd))
+        isLoading = true
+        hostSessions.removeAll { $0.sessionId == session.sessionId }
+        onSelectSession?(session.sessionId)
     }
 
     func chatViewModel(for sessionId: String) -> ChatViewModel {
@@ -84,8 +115,8 @@ final class SessionViewModel {
     private func handleMessage(_ msg: DaemonMessage) {
         // Forward event messages to active chat
         switch msg {
-        case .eventText, .eventToolCall, .eventToolCallUpdate,
-             .eventUsage, .eventTurnEnd, .eventError, .eventSessionInfo:
+        case .eventText, .eventUserText, .eventToolCall, .eventToolCallUpdate,
+             .eventUsage, .eventTurnEnd, .eventReplayEnd, .eventError, .eventSessionInfo:
             activeChatVM?.handleDaemonMessage(msg)
             return
         // permission requests also go to chat (for now — #47 will add modal)
@@ -111,6 +142,10 @@ final class SessionViewModel {
 
         case .sessionDestroyed:
             break // already removed in destroySession
+
+        case .hostSessionList(let list, let supported):
+            hostSessions = list
+            hostSessionsSupported = supported
 
         case .error(let message, _):
             if activeChatVM == nil {
