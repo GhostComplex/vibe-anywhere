@@ -158,7 +158,7 @@ struct SettingsView: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
-                .stroke(Color.red.opacity(0.2), lineWidth: 1)
+                .stroke(Color.red.opacity(0.2), lineWidth: 0.5)
         )
     }
 
