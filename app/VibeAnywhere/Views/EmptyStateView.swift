@@ -35,7 +35,7 @@ struct EmptyStateView: View {
     private var logoView: some View {
         ZStack {
             Circle()
-                .fill(Theme.surface)
+                .fill(.ultraThinMaterial)
                 .frame(width: 80, height: 80)
                 .overlay(
                     Circle()
@@ -69,7 +69,7 @@ struct EmptyStateView: View {
             .foregroundStyle(Theme.textPrimary)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(Theme.surface)
+            .background(.ultraThinMaterial)
             .clipShape(Capsule())
             .overlay(Capsule().stroke(Theme.border.opacity(0.6), lineWidth: 0.5))
             .shadow(color: Theme.cardShadow, radius: 3, y: 1)

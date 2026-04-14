@@ -35,7 +35,7 @@ struct ContentView: View {
                         Image(systemName: "gearshape")
                             .foregroundStyle(Theme.textSecondary)
                             .frame(width: 32, height: 32)
-                            .background(Theme.surface)
+                            .background(.ultraThinMaterial)
                             .clipShape(Circle())
                             .shadow(color: Theme.cardShadow, radius: 3, y: 1)
                     }
@@ -178,7 +178,7 @@ struct ContentView: View {
                         .foregroundStyle(Theme.textPrimary)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(Theme.surface)
+                        .background(.ultraThinMaterial)
                         .clipShape(Capsule())
                         .shadow(color: Theme.cardShadow, radius: 3, y: 1)
                     }
