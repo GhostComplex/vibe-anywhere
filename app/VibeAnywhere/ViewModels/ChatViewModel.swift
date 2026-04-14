@@ -12,6 +12,7 @@ struct ChatMessage: Identifiable, Sendable {
     var text: String
     var toolUses: [ToolUseInfo] = []
     var isStreaming: Bool = false
+    var isError: Bool = false
 }
 
 struct ToolUseInfo: Identifiable, Sendable {
@@ -56,6 +57,7 @@ struct PermissionRecord: Identifiable, Sendable {
 final class ChatViewModel {
     private(set) var messages: [ChatMessage] = []
     private(set) var isWaiting = false
+    private(set) var hasError = false
     var isLoadingHistory = false
     private(set) var turnUsage: TurnUsage?
     private(set) var sessionAgent: String = "claude"
@@ -78,7 +80,7 @@ final class ChatViewModel {
 
     func sendMessage(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, !hasError else { return }
 
         // Add user message
         messages.append(ChatMessage(role: .user, text: trimmed))
@@ -255,15 +257,17 @@ final class ChatViewModel {
     }
 
     private func appendError(_ message: String) {
+        // Don't stack duplicate errors
+        if hasError { return }
+
         // Finalize any streaming message, then add error
         if let lastIndex = messages.indices.last,
            messages[lastIndex].role == .assistant,
            messages[lastIndex].isStreaming {
             messages[lastIndex].isStreaming = false
-            messages[lastIndex].text += "\n\n⚠️ \(message)"
-        } else {
-            messages.append(ChatMessage(role: .assistant, text: "⚠️ \(message)"))
         }
+        messages.append(ChatMessage(role: .assistant, text: message, isError: true))
+        hasError = true
         isWaiting = false
     }
 
