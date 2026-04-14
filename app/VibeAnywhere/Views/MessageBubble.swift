@@ -40,7 +40,7 @@ struct MessageBubble: View {
                 .foregroundStyle(Theme.textPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(.thinMaterial)
+                .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -53,7 +53,7 @@ struct MessageBubble: View {
                             lineWidth: 0.5
                         )
                 )
-                .shadow(color: .black.opacity(0.06), radius: 3, y: 2)
+                .shadow(color: Theme.cardShadow, radius: 4, y: 2)
         } else {
             assistantCard
         }
@@ -84,22 +84,7 @@ struct MessageBubble: View {
 
     private var assistantCard: some View {
         MarkdownContentView(text: message.text)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [.white.opacity(0.7), Theme.border.opacity(0.3)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.5
-                    )
-            )
-            .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
+            .foregroundStyle(Theme.textPrimary)
     }
 
     // MARK: - Tool Card
