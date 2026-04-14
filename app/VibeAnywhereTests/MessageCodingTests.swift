@@ -125,7 +125,7 @@ final class MessageCodingTests: XCTestCase {
     func testDecodeEventText() throws {
         let json = #"{"type":"event/text","sessionId":"abc","content":"hello"}"#
         let msg = try decoder.decode(DaemonMessage.self, from: json.data(using: .utf8)!)
-        if case .eventText(let sid, let content) = msg {
+        if case .eventText(let sid, let content, _) = msg {
             XCTAssertEqual(sid, "abc")
             XCTAssertEqual(content, "hello")
         } else {
@@ -136,7 +136,7 @@ final class MessageCodingTests: XCTestCase {
     func testDecodeEventToolCall() throws {
         let json = #"{"type":"event/tool_call","sessionId":"s1","toolCallId":"tc1","tool":"read","status":"running"}"#
         let msg = try decoder.decode(DaemonMessage.self, from: json.data(using: .utf8)!)
-        if case .eventToolCall(let sid, let tcId, let tool, let status) = msg {
+        if case .eventToolCall(let sid, let tcId, let tool, let status, _) = msg {
             XCTAssertEqual(sid, "s1")
             XCTAssertEqual(tcId, "tc1")
             XCTAssertEqual(tool, "read")
