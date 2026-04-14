@@ -228,7 +228,7 @@ struct SessionSettingsSheet: View {
 private extension View {
     func themedCard() -> some View {
         self
-            .background(Theme.surface)
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)

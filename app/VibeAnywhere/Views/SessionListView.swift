@@ -31,7 +31,7 @@ struct SessionListView: View {
                     Image(systemName: "plus")
                         .foregroundStyle(Theme.textSecondary)
                         .frame(width: 32, height: 32)
-                        .background(Theme.surface)
+                        .background(.ultraThinMaterial)
                         .clipShape(Circle())
                         .shadow(color: Theme.cardShadow, radius: 3, y: 1)
                 }
@@ -99,7 +99,7 @@ struct SessionListView: View {
 
             ZStack {
                 Circle()
-                    .fill(Theme.surface)
+                    .fill(.ultraThinMaterial)
                     .frame(width: 80, height: 80)
                     .shadow(color: Theme.cardShadow, radius: 4, y: 2)
 
@@ -230,7 +230,7 @@ struct SessionListView: View {
                 .buttonStyle(.plain)
             }
             .padding(Theme.paddingMd)
-            .background(Theme.surface)
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous)

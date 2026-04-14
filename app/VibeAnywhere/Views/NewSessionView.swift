@@ -60,7 +60,7 @@ struct NewSessionView: View {
                         .font(.system(.body, design: .monospaced))
                 }
             }
-            .background(Theme.surface)
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
@@ -100,7 +100,7 @@ struct NewSessionView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .background(Theme.surface)
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
@@ -138,7 +138,7 @@ struct NewSessionView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .background(Theme.surface)
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)

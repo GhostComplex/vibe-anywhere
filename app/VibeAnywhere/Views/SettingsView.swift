@@ -78,7 +78,7 @@ struct SettingsView: View {
                         .keyboardType(.numberPad)
                 }
             }
-            .background(Theme.surface)
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
@@ -111,7 +111,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            .background(Theme.surface)
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
@@ -135,7 +135,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            .background(Theme.surface)
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)

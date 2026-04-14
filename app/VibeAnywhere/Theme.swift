@@ -49,7 +49,7 @@ extension Color {
 struct CardStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(Theme.surface)
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous)

@@ -132,7 +132,7 @@ struct ChatView: View {
         }
         .padding(.horizontal, Theme.paddingMd)
         .padding(.vertical, Theme.paddingSm)
-        .background(Theme.surface)
+        .background(.ultraThinMaterial)
         .shadow(color: .black.opacity(0.08), radius: 6, y: -3)
     }
 
