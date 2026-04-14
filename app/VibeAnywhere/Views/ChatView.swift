@@ -57,6 +57,7 @@ struct ChatView: View {
         }
         .animation(.spring(duration: 0.3), value: viewModel.pendingPermission != nil)
         .onAppear { isInputFocused = true }
+        .onDisappear { scrollTask?.cancel() }
     }
 
     // MARK: - Messages
