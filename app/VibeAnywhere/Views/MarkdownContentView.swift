@@ -251,9 +251,16 @@ private struct CachedMarkdownText: View {
     }
 
     private func parse() {
-        attributed = (try? AttributedString(markdown: content, options: .init(
-            interpretedSyntax: .inlineOnlyPreservingWhitespace
-        ))) ?? AttributedString(content)
+        let src = content
+        Task.detached(priority: .userInitiated) {
+            let result = (try? AttributedString(markdown: src, options: .init(
+                interpretedSyntax: .inlineOnlyPreservingWhitespace
+            ))) ?? AttributedString(src)
+            await MainActor.run {
+                guard content == src else { return } // stale check
+                attributed = result
+            }
+        }
     }
 }
 
@@ -320,6 +327,18 @@ private struct SyntaxHighlightedText: View {
     }
 
     private func highlight() {
+        let src = code
+        let lang = language
+        Task.detached(priority: .userInitiated) {
+            let result = Self.performHighlight(code: src, language: lang)
+            await MainActor.run {
+                guard code == src else { return }
+                cached = result
+            }
+        }
+    }
+
+    private nonisolated static func performHighlight(code: String, language: String) -> AttributedString {
         let lang = language.lowercased()
         let langKey: String
         switch lang {
@@ -329,8 +348,8 @@ private struct SyntaxHighlightedText: View {
         case "python", "py": langKey = "python"
         default: langKey = ""
         }
-        let keywords = Self.kwSets[langKey] ?? Self.defaultKw
-        let typeSet = Self.typeSets[langKey] ?? []
+        let keywords = kwSets[langKey] ?? defaultKw
+        let typeSet = typeSets[langKey] ?? []
 
         var result = AttributedString()
         let lines = code.components(separatedBy: "\n")
@@ -338,10 +357,10 @@ private struct SyntaxHighlightedText: View {
             if idx > 0 { result.append(AttributedString("\n")) }
             result.append(highlightLine(line, kw: keywords, types: typeSet))
         }
-        cached = result
+        return result
     }
 
-    private func highlightLine(_ line: String, kw: Set<String>, types: Set<String>) -> AttributedString {
+    private nonisolated static func highlightLine(_ line: String, kw: Set<String>, types: Set<String>) -> AttributedString {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         if trimmed.hasPrefix("//") || trimmed.hasPrefix("#") {
             var a = AttributedString(line)
@@ -415,7 +434,7 @@ private struct SyntaxHighlightedText: View {
         return result
     }
 
-    private func scanString(_ line: String, from start: String.Index, quote: Character) -> String.Index {
+    private nonisolated static func scanString(_ line: String, from start: String.Index, quote: Character) -> String.Index {
         var i = line.index(after: start)
         while i < line.endIndex {
             if line[i] == "\\" && line.index(after: i) < line.endIndex {
