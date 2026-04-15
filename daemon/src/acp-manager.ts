@@ -22,6 +22,7 @@ export type AcpManagerEvent =
 
 export interface AcpManagerConfig {
   acpxPath: string;         // path to acpx binary or 'npx'
+  claudePath?: string;      // path to Claude Code executable
   permissionMode: 'prompt' | 'approve-all' | 'deny-all';
   timeout: number;          // seconds per turn
 }
@@ -97,9 +98,14 @@ export class AcpManager extends EventEmitter {
 
     console.log(`[acp-mgr] Spawning: ${cmd} ${args.join(' ')}`);
 
+    const env = { ...process.env };
+    if (this.config.claudePath) {
+      env.CLAUDE_CODE_EXECUTABLE = this.config.claudePath;
+    }
+
     const proc = spawn(cmd, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env },
+      env,
     });
 
     console.log(`[acp-mgr] Process spawned, pid: ${proc.pid}`);

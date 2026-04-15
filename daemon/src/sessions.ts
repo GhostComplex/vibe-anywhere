@@ -33,6 +33,7 @@ export class SessionManager {
 
     this.acpManager = new AcpManager({
       acpxPath: config.acpx.path,
+      claudePath: config.claudePath,
       permissionMode: config.acpx.permissionMode,
       timeout: config.acpx.timeout,
     });

@@ -10,6 +10,7 @@ export interface Config {
   token: string;
   allowedDirs: string[];
   defaultAgent: string;
+  claudePath?: string;
   acpx: {
     path: string;
     permissionMode: 'prompt' | 'approve-all' | 'deny-all';
@@ -80,7 +81,9 @@ function validate(raw: Record<string, unknown>): Config {
     (dir) => path.resolve(expandTilde(dir)),
   );
 
-  return { port, bind, token: raw.token, allowedDirs, defaultAgent, acpx };
+  const claudePath = typeof raw.claudePath === 'string' ? expandTilde(raw.claudePath) : undefined;
+
+  return { port, bind, token: raw.token, allowedDirs, defaultAgent, claudePath, acpx };
 }
 
 export function loadConfig(): Config {
