@@ -245,7 +245,7 @@ private struct CachedMarkdownText: View {
         Text(attributed ?? AttributedString(content))
             .textSelection(.enabled)
             .foregroundStyle(Theme.textPrimary)
-            .onAppear {
+            .task {
                 parse()
             }
             .onChange(of: content) { _, _ in
@@ -327,7 +327,7 @@ private struct SyntaxHighlightedText: View {
         Text(cached ?? AttributedString(code))
             .font(.system(.caption, design: .monospaced))
             .textSelection(.enabled)
-            .onAppear {
+            .task {
                 highlight()
             }
             .onChange(of: code) { _, _ in
