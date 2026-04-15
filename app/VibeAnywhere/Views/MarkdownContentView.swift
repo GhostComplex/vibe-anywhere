@@ -276,14 +276,14 @@ private struct SyntaxHighlightedText: View {
     let language: String
     @State private var cached: AttributedString?
 
-    private static let kwColor = Color(hex: 0xCF222E)
-    private static let strColor = Color(hex: 0x0A3069)
-    private static let commentColor = Color(hex: 0x6E7781)
-    private static let typeColor = Color(hex: 0x8250DF)
-    private static let numColor = Color(hex: 0x0550AE)
+    private nonisolated(unsafe) static let kwColor = Color(hex: 0xCF222E)
+    private nonisolated(unsafe) static let strColor = Color(hex: 0x0A3069)
+    private nonisolated(unsafe) static let commentColor = Color(hex: 0x6E7781)
+    private nonisolated(unsafe) static let typeColor = Color(hex: 0x8250DF)
+    private nonisolated(unsafe) static let numColor = Color(hex: 0x0550AE)
 
     // Pre-built keyword/type sets (static, allocated once)
-    private static let kwSets: [String: Set<String>] = [
+    private nonisolated(unsafe) static let kwSets: [String: Set<String>] = [
         "swift": ["import", "func", "var", "let", "class", "struct", "enum", "protocol",
                   "if", "else", "guard", "return", "switch", "case", "default", "for",
                   "in", "while", "repeat", "break", "continue", "throw", "throws",
@@ -305,13 +305,13 @@ private struct SyntaxHighlightedText: View {
                    "not", "is", "in", "True", "False", "None", "self", "async", "await",
                    "global", "nonlocal", "del", "assert"],
     ]
-    private static let defaultKw: Set<String> = [
+    private nonisolated(unsafe) static let defaultKw: Set<String> = [
         "if", "else", "for", "while", "return", "function", "class",
         "var", "let", "const", "import", "export", "true", "false", "null",
         "nil", "void", "new", "this", "self", "switch", "case", "default",
         "break", "continue", "try", "catch", "throw"
     ]
-    private static let typeSets: [String: Set<String>] = [
+    private nonisolated(unsafe) static let typeSets: [String: Set<String>] = [
         "swift": ["String", "Int", "Double", "Float", "Bool", "Array", "Dictionary",
                   "Set", "Optional", "Result", "Error", "URL", "Data", "Date", "UUID",
                   "View", "Color", "Text", "Image", "Button", "VStack", "HStack",

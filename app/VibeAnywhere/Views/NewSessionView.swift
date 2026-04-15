@@ -4,13 +4,14 @@ struct NewSessionView: View {
     let viewModel: SessionViewModel
     var onDismiss: () -> Void
 
-    @State private var path = ""
+    @State private var selectedPath: String?
     @State private var selectedAgent = "claude"
-    @State private var favorites: [String] = []
-
-    private static let favoritesKey = "savedDirectories"
 
     private let agents = ["claude"]
+
+    private var allowedDirs: [String] {
+        viewModel.wsService.allowedDirs
+    }
 
     var body: some View {
         NavigationStack {
@@ -18,10 +19,6 @@ struct NewSessionView: View {
                 VStack(spacing: Theme.paddingMd) {
                     directorySection
                     agentSection
-
-                    if !favorites.isEmpty {
-                        recentSection
-                    }
                 }
                 .padding(.horizontal, Theme.paddingMd)
                 .padding(.top, Theme.paddingSm)
@@ -37,11 +34,14 @@ struct NewSessionView: View {
                     Button("Create") {
                         createSession()
                     }
-                    .disabled(path.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(selectedPath == nil)
                 }
             }
             .onAppear {
-                loadFavorites()
+                // Auto-select if only one allowed directory
+                if allowedDirs.count == 1 {
+                    selectedPath = allowedDirs[0]
+                }
             }
         }
     }
@@ -53,11 +53,38 @@ struct NewSessionView: View {
             sectionHeader("PROJECT DIRECTORY")
 
             VStack(spacing: 0) {
-                fieldRow {
-                    TextField("~/projects/my-app", text: $path)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .font(.system(.body, design: .monospaced))
+                ForEach(Array(allowedDirs.enumerated()), id: \.element) { index, dir in
+                    if index > 0 {
+                        Divider().foregroundStyle(Theme.border)
+                    }
+                    Button {
+                        selectedPath = dir
+                    } label: {
+                        HStack {
+                            Image(systemName: "folder.fill")
+                                .foregroundStyle(selectedPath == dir ? Theme.accent : Theme.textTertiary)
+                                .frame(width: 20)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(dir.components(separatedBy: "/").last ?? dir)
+                                    .font(.body)
+                                    .foregroundStyle(Theme.textPrimary)
+                                Text(dir)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(Theme.textTertiary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            Spacer()
+                            if selectedPath == dir {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Theme.accent)
+                                    .font(.subheadline.bold())
+                            }
+                        }
+                        .padding(.horizontal, Theme.paddingMd)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .background(.ultraThinMaterial)
@@ -111,45 +138,6 @@ struct NewSessionView: View {
         }
     }
 
-    private var recentSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("RECENT")
-
-            VStack(spacing: 0) {
-                ForEach(Array(favorites.enumerated()), id: \.element) { index, dir in
-                    if index > 0 {
-                        Divider().foregroundStyle(Theme.border)
-                    }
-                    Button {
-                        path = dir
-                    } label: {
-                        HStack {
-                            Image(systemName: "folder")
-                                .foregroundStyle(Theme.textTertiary)
-                                .frame(width: 20)
-                            Text(dir)
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundStyle(Theme.textPrimary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            Spacer()
-                        }
-                        .padding(.horizontal, Theme.paddingMd)
-                        .padding(.vertical, 14)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
-                    .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
-            )
-            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
-        }
-    }
-
     // MARK: - Helpers
 
     private func sectionHeader(_ title: String) -> some View {
@@ -161,32 +149,10 @@ struct NewSessionView: View {
             .padding(.bottom, Theme.paddingSm)
     }
 
-    private func fieldRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .padding(.horizontal, Theme.paddingMd)
-            .padding(.vertical, 14)
-    }
-
     private func createSession() {
-        let trimmed = path.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-
-        if !favorites.contains(trimmed) {
-            favorites.insert(trimmed, at: 0)
-            if favorites.count > 10 { favorites = Array(favorites.prefix(10)) }
-            saveFavorites()
-        }
-
-        viewModel.createSession(cwd: trimmed, agent: selectedAgent)
+        guard let path = selectedPath else { return }
+        viewModel.createSession(cwd: path, agent: selectedAgent)
         onDismiss()
-    }
-
-    private func loadFavorites() {
-        favorites = UserDefaults.standard.stringArray(forKey: Self.favoritesKey) ?? []
-    }
-
-    private func saveFavorites() {
-        UserDefaults.standard.set(favorites, forKey: Self.favoritesKey)
     }
 
     private func agentIcon(for agent: String) -> String {

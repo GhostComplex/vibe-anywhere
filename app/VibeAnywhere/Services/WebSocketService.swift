@@ -15,6 +15,7 @@ enum ConnectionState: Sendable, Equatable {
 @MainActor
 final class WebSocketService {
     private(set) var state: ConnectionState = .disconnected
+    private(set) var allowedDirs: [String] = []
     private var wsTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private var config: ConnectionConfig = .empty
@@ -140,8 +141,9 @@ final class WebSocketService {
             return
         }
 
-        if case .hello = daemonMessage {
-            wsLog.info("[ws] hello → connected")
+        if case .hello(_, let dirs) = daemonMessage {
+            wsLog.info("[ws] hello → connected, allowedDirs=\(dirs)")
+            allowedDirs = dirs
             state = .connected
             return
         }

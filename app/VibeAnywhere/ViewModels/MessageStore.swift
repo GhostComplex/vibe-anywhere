@@ -37,10 +37,19 @@ final class MessageStore {
         replayBuffer = []
     }
 
+    /// True briefly after endReplay, to prevent onChange(count) from scrolling
+    /// while isLoadingHistory transitions from true→false in the same cycle.
+    private(set) var didJustEndReplay = false
+
     func endReplay() {
+        didJustEndReplay = true
         items = replayBuffer
         replayBuffer = []
         isLoadingHistory = false
+    }
+
+    func clearReplayFlag() {
+        didJustEndReplay = false
     }
 
     func appendReplayUser(_ text: String) {

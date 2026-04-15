@@ -53,7 +53,7 @@ export function startServer(opts: ServerOptions): Server {
     console.log(`[ws] Client connected: ${addr}`);
 
     // Send hello so client knows the connection is fully established
-    send(ws, { type: 'hello', version: 2 });
+    send(ws, { type: 'hello', version: 2, allowedDirs: config.allowedDirs });
 
     ws.on('message', (data) => {
       const raw = data.toString();

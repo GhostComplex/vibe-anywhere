@@ -127,20 +127,18 @@ final class SessionViewModel {
         case .eventPermissionRequest:
             activeChatVM?.handleDaemonMessage(msg)
             return
-        case .error:
-            activeChatVM?.handleDaemonMessage(msg)
         default:
             break
         }
 
         isLoading = false
-        error = nil
 
         switch msg {
         case .sessionList(let list):
             sessions = list
 
         case .sessionCreated(let sessionId, _):
+            error = nil
             refreshSessions()
             onSelectSession?(sessionId)
 
@@ -152,9 +150,20 @@ final class SessionViewModel {
             hostSessionsSupported = supported
 
         case .error(let message, _):
-            if activeChatVM == nil {
-                error = message
+            if let chatVM = activeChatVM, chatVM.messages.isLoadingHistory {
+                // Session failed during resume/create — still in replay state.
+                // Clear loading state, pop navigation, and clean up.
+                chatVM.messages.endReplay()
+                let sid = chatVM.sessionId
+                onSessionDestroyed?(sid)
+                chatVMs.removeValue(forKey: sid)
+                chatVMOrder.removeAll { $0 == sid }
+                activeChatVM = nil
+            } else {
+                // Normal error during an active session — forward to chatVM
+                activeChatVM?.handleDaemonMessage(msg)
             }
+            error = message
 
         default:
             break

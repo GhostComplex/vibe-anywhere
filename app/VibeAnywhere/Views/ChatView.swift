@@ -103,7 +103,7 @@ struct ChatView: View {
                 }
             }
             .onChange(of: viewModel.messages.count) { _, _ in
-                if !viewModel.messages.isLoadingHistory {
+                if !viewModel.messages.isLoadingHistory && !viewModel.messages.didJustEndReplay {
                     scrollToBottom(proxy)
                 }
             }
@@ -115,6 +115,7 @@ struct ChatView: View {
                 if old && !new {
                     // Delay after replay to let layout settle
                     Task { @MainActor in
+                        viewModel.messages.clearReplayFlag()
                         try? await Task.sleep(for: .milliseconds(300))
                         scrollToBottom(proxy)
                     }

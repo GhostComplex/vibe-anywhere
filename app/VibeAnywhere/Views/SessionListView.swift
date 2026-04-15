@@ -5,6 +5,7 @@ struct SessionListView: View {
     @State private var showNewSession = false
     @State private var sessionToDelete: String?
     @State private var showDeleteAll = false
+    @State private var expandedPaths: Set<String> = []
 
     var body: some View {
         ZStack {
@@ -79,16 +80,6 @@ struct SessionListView: View {
         .onAppear {
             viewModel.refreshSessions()
         }
-        .alert("Error", isPresented: .init(
-            get: { viewModel.error != nil },
-            set: { if !$0 { viewModel.clearError() } }
-        )) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            if let error = viewModel.error {
-                Text(error)
-            }
-        }
     }
 
     // MARK: - Empty
@@ -158,8 +149,8 @@ struct SessionListView: View {
                 if !viewModel.hostSessions.isEmpty {
                     sectionHeader("RECENT")
 
-                    ForEach(viewModel.hostSessions) { session in
-                        hostSessionCard(session)
+                    ForEach(groupedHostSessions, id: \.path) { group in
+                        hostSessionGroup(path: group.path, sessions: group.sessions)
                             .padding(.horizontal, Theme.paddingMd)
                             .padding(.bottom, Theme.paddingSm)
                     }
@@ -291,5 +282,100 @@ struct SessionListView: View {
     private func displayPath(_ cwd: String) -> String {
         if cwd.isEmpty || cwd == "/" { return "Unknown directory" }
         return cwd
+    }
+
+    // MARK: - Grouped Host Sessions
+
+    private var groupedHostSessions: [(path: String, sessions: [HostSessionInfo])] {
+        let allowed = viewModel.wsService.allowedDirs
+        let filtered = viewModel.hostSessions.filter { session in
+            allowed.contains { session.cwd == $0 || session.cwd.hasPrefix($0 + "/") }
+        }
+        let grouped = Dictionary(grouping: filtered) { $0.cwd }
+        return grouped.map { (path: $0.key, sessions: $0.value) }
+            .sorted { a, b in
+                let aDate = a.sessions.compactMap(\.updatedAt).max() ?? ""
+                let bDate = b.sessions.compactMap(\.updatedAt).max() ?? ""
+                return aDate > bDate
+            }
+    }
+
+    private func hostSessionGroup(path: String, sessions: [HostSessionInfo]) -> some View {
+        let isExpanded = expandedPaths.contains(path)
+
+        return VStack(spacing: 0) {
+            // Group header — tap to toggle
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if expandedPaths.contains(path) {
+                        expandedPaths.remove(path)
+                    } else {
+                        expandedPaths.insert(path)
+                    }
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption2.bold())
+                        .foregroundStyle(Theme.textTertiary)
+                        .frame(width: 12)
+
+                    Image(systemName: "folder.fill")
+                        .font(.title3)
+                        .foregroundStyle(Theme.textTertiary)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(directoryName(path))
+                                .font(.headline)
+                                .foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1)
+
+                            Text("\(sessions.count)")
+                                .font(.caption2.bold())
+                                .foregroundStyle(Theme.textTertiary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Theme.background)
+                                .clipShape(Capsule())
+                        }
+
+                        Text(displayPath(path))
+                            .font(.caption.monospaced())
+                            .foregroundStyle(Theme.textTertiary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+
+                    Spacer()
+
+                    if let latest = sessions.first?.relativeDate {
+                        Text(latest)
+                            .font(.caption2)
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                }
+                .padding(Theme.paddingMd)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.radiusLg, style: .continuous)
+                        .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
+                )
+                .shadow(color: Theme.cardShadow, radius: 4, y: 2)
+            }
+            .buttonStyle(.plain)
+
+            // Expanded session cards
+            if isExpanded {
+                VStack(spacing: Theme.paddingSm) {
+                    ForEach(sessions) { session in
+                        hostSessionCard(session)
+                    }
+                }
+                .padding(.leading, 24)
+                .padding(.top, Theme.paddingSm)
+            }
+        }
     }
 }

@@ -176,6 +176,7 @@ export interface EventSessionInfoMsg {
 export interface HelloMsg {
   type: 'hello';
   version: number;
+  allowedDirs: string[];
 }
 
 export interface HostSessionListResponseMsg {
