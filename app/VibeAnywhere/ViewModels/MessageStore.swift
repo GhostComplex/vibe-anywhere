@@ -21,27 +21,12 @@ final class MessageStore {
         items.append(ChatMessage(role: .user, text: text))
     }
 
-    /// Add a streaming placeholder so ForEach has a stable slot.
-    func appendStreamingPlaceholder() {
-        items.append(ChatMessage(role: .assistant, text: "", isStreaming: true))
-    }
-
-    /// Replace the streaming placeholder with finalized content.
-    func finalizeAssistant(text: String, toolUses: [ToolUseInfo]) {
-        guard let lastIndex = items.indices.last,
-              items[lastIndex].role == .assistant else { return }
-        items[lastIndex].text = text
-        items[lastIndex].toolUses = toolUses
-        items[lastIndex].isStreaming = false
+    /// Add a finalized assistant message.
+    func appendAssistant(text: String, toolUses: [ToolUseInfo]) {
+        items.append(ChatMessage(role: .assistant, text: text, toolUses: toolUses))
     }
 
     func appendError(_ message: String) {
-        // If there's an active streaming placeholder, finalize it first
-        if let lastIndex = items.indices.last,
-           items[lastIndex].role == .assistant,
-           items[lastIndex].isStreaming {
-            items[lastIndex].isStreaming = false
-        }
         items.append(ChatMessage(role: .assistant, text: message, isError: true))
     }
 
