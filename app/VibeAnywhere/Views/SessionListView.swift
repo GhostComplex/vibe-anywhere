@@ -312,7 +312,7 @@ struct SessionListView: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
-                            Text(directoryName(path))
+                            Text(path.components(separatedBy: "/").last ?? path)
                                 .font(.headline)
                                 .foregroundStyle(Theme.textPrimary)
                                 .lineLimit(1)
