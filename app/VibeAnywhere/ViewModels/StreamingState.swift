@@ -40,10 +40,4 @@ final class StreamingState {
         isActive = false
         return result
     }
-
-    func reset() {
-        text = ""
-        toolUses = []
-        isActive = false
-    }
 }

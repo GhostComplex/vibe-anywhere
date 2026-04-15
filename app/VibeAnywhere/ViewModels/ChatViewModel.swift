@@ -85,6 +85,14 @@ final class ChatViewModel {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !hasError else { return }
 
+        // Finalize any in-flight streaming before starting a new turn
+        if streaming.isActive {
+            let result = streaming.finalize()
+            if !result.text.isEmpty || !result.toolUses.isEmpty {
+                messages.appendAssistant(text: result.text, toolUses: result.toolUses)
+            }
+        }
+
         messages.appendUser(trimmed)
         streaming.begin()
         isWaiting = true

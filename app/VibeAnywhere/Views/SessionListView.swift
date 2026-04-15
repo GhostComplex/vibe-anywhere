@@ -288,11 +288,6 @@ struct SessionListView: View {
         .buttonStyle(.plain)
     }
 
-    private func directoryName(_ cwd: String) -> String {
-        if cwd.isEmpty || cwd == "/" { return "Unknown" }
-        return cwd.components(separatedBy: "/").last ?? cwd
-    }
-
     private func displayPath(_ cwd: String) -> String {
         if cwd.isEmpty || cwd == "/" { return "Unknown directory" }
         return cwd
