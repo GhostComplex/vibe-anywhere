@@ -1,24 +1,12 @@
 import SwiftUI
-import os.log
-
-private let cpuLog = Logger(subsystem: "com.ghostcomplex.VibeAnywhere", category: "CPUDebug")
 
 struct ChatView: View {
     let viewModel: ChatViewModel
     @State private var inputText = ""
     @State private var showSettings = false
     @FocusState private var isInputFocused: Bool
-    @State private var bodyEvalCount = 0
 
     var body: some View {
-        let _ = {
-            bodyEvalCount += 1
-            cpuLog.warning("[ChatView] body eval #\(bodyEvalCount) messages=\(viewModel.messages.count) streaming=\(viewModel.streaming.isActive) isWaiting=\(viewModel.isWaiting)")
-            if bodyEvalCount > 100 {
-                cpuLog.fault("[ChatView] ⚠️ EXCESSIVE body evals: #\(bodyEvalCount)")
-            }
-        }()
-
         ZStack {
             Theme.background.ignoresSafeArea()
 
@@ -114,20 +102,16 @@ struct ChatView: View {
                         .transition(.opacity)
                 }
             }
-            .onChange(of: viewModel.messages.count) { _, newCount in
-                cpuLog.info("[ChatView] onChange(messages.count) = \(newCount)")
+            .onChange(of: viewModel.messages.count) { _, _ in
                 if !viewModel.messages.isLoadingHistory {
                     scrollToBottom(proxy)
                 }
             }
             .onChange(of: viewModel.streaming.isActive) { old, new in
-                cpuLog.info("[ChatView] onChange(streaming.isActive) \(old) -> \(new)")
-                // Scroll when streaming starts or ends
-                if !old && new { scrollToBottom(proxy) }  // streaming started
-                if old && !new { scrollToBottom(proxy) }  // finalized
+                if !old && new { scrollToBottom(proxy) }
+                if old && !new { scrollToBottom(proxy) }
             }
             .onChange(of: viewModel.messages.isLoadingHistory) { old, new in
-                cpuLog.info("[ChatView] onChange(isLoadingHistory) \(old) -> \(new)")
                 if old && !new {
                     // Delay after replay to let layout settle
                     Task { @MainActor in
@@ -207,7 +191,6 @@ struct ChatView: View {
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
         guard let lastId = viewModel.messages.last?.id else { return }
-        cpuLog.info("[ChatView] scrollToBottom called — target=\(lastId)")
         withAnimation(.easeOut(duration: 0.2)) {
             proxy.scrollTo(lastId, anchor: .bottom)
         }

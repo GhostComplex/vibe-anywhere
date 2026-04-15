@@ -1,7 +1,4 @@
 import SwiftUI
-import os.log
-
-private let cpuLog = Logger(subsystem: "com.ghostcomplex.VibeAnywhere", category: "CPUDebug")
 
 /// Renders Markdown text with headings, styled code blocks, and inline formatting.
 struct MarkdownContentView: View {
@@ -13,7 +10,6 @@ struct MarkdownContentView: View {
     @State private var isExpanded = false
     @State private var cachedSegments: [Segment] = []
     @State private var cachedDisplayText: String = ""
-    @State private var bodyEvalCount = 0
 
     private var shouldCollapse: Bool {
         text.count > Self.collapseCharLimit
@@ -32,14 +28,6 @@ struct MarkdownContentView: View {
 
     var body: some View {
         let collapsed = shouldCollapse
-        let _ = {
-            bodyEvalCount += 1
-            let prefix = String(text.prefix(40))
-            cpuLog.warning("[MarkdownContentView] body eval #\(bodyEvalCount) collapsed=\(collapsed) isExpanded=\(isExpanded) segments=\(cachedSegments.count) text=\(prefix)")
-            if bodyEvalCount > 50 {
-                cpuLog.fault("[MarkdownContentView] ⚠️ EXCESSIVE body evals: #\(bodyEvalCount) — possible infinite loop!")
-            }
-        }()
 
         VStack(alignment: .leading, spacing: 10) {
             if collapsed {
@@ -66,21 +54,13 @@ struct MarkdownContentView: View {
             }
         }
         .clipped()
-        .onAppear { updateSegments() }
-        .onChange(of: text) { _, _ in updateSegments() }
+        .task(id: text) { updateSegments() }
         .onChange(of: isExpanded) { _, _ in updateSegments() }
     }
 
     private func updateSegments() {
         let dt = displayText
-        let prefix = String(dt.prefix(40))
-        let cached = String(cachedDisplayText.prefix(40))
-        cpuLog.info("[MarkdownContentView] updateSegments called — displayText=\(prefix) cached=\(cached) match=\(dt == cachedDisplayText)")
-        guard dt != cachedDisplayText else {
-            cpuLog.info("[MarkdownContentView] updateSegments SKIPPED (no change)")
-            return
-        }
-        cpuLog.warning("[MarkdownContentView] updateSegments WRITING @State — segments will change")
+        guard dt != cachedDisplayText else { return }
         cachedDisplayText = dt
         cachedSegments = parseSegments(dt)
     }
@@ -260,44 +240,29 @@ struct MarkdownContentView: View {
 private struct CachedMarkdownText: View {
     let content: String
     @State private var attributed: AttributedString?
-    @State private var bodyEvalCount = 0
 
     var body: some View {
-        let _ = {
-            bodyEvalCount += 1
-            let prefix = String(content.prefix(30))
-            cpuLog.info("[CachedMarkdownText] body eval #\(bodyEvalCount) content=\(prefix)")
-            if bodyEvalCount > 50 {
-                cpuLog.fault("[CachedMarkdownText] ⚠️ EXCESSIVE body evals: #\(bodyEvalCount)")
-            }
-        }()
-
         Text(attributed ?? AttributedString(content))
             .textSelection(.enabled)
             .foregroundStyle(Theme.textPrimary)
             .onAppear {
-                cpuLog.info("[CachedMarkdownText] onAppear — parsing")
                 parse()
             }
             .onChange(of: content) { _, _ in
-                cpuLog.info("[CachedMarkdownText] onChange(content) — re-parsing")
+                attributed = nil
                 parse()
             }
     }
 
     private func parse() {
         let src = content
-        cpuLog.info("[CachedMarkdownText] parse() called for: \(String(src.prefix(30)))")
+        guard attributed == nil else { return }
         Task.detached(priority: .userInitiated) {
             let result = (try? AttributedString(markdown: src, options: .init(
                 interpretedSyntax: .inlineOnlyPreservingWhitespace
             ))) ?? AttributedString(src)
             await MainActor.run {
-                guard content == src else {
-                    cpuLog.warning("[CachedMarkdownText] parse() STALE — discarding")
-                    return
-                }
-                cpuLog.info("[CachedMarkdownText] parse() APPLIED attributed string")
+                guard content == src else { return }
                 attributed = result
             }
         }
@@ -310,7 +275,6 @@ private struct SyntaxHighlightedText: View {
     let code: String
     let language: String
     @State private var cached: AttributedString?
-    @State private var bodyEvalCount = 0
 
     private static let kwColor = Color(hex: 0xCF222E)
     private static let strColor = Color(hex: 0x0A3069)
@@ -360,23 +324,14 @@ private struct SyntaxHighlightedText: View {
     ]
 
     var body: some View {
-        let _ = {
-            bodyEvalCount += 1
-            cpuLog.info("[SyntaxHighlight] body eval #\(bodyEvalCount) lang=\(language) code=\(String(code.prefix(30)))")
-            if bodyEvalCount > 50 {
-                cpuLog.fault("[SyntaxHighlight] ⚠️ EXCESSIVE body evals: #\(bodyEvalCount)")
-            }
-        }()
-
         Text(cached ?? AttributedString(code))
             .font(.system(.caption, design: .monospaced))
             .textSelection(.enabled)
             .onAppear {
-                cpuLog.info("[SyntaxHighlight] onAppear — highlighting")
                 highlight()
             }
             .onChange(of: code) { _, _ in
-                cpuLog.info("[SyntaxHighlight] onChange(code) — re-highlighting")
+                cached = nil
                 highlight()
             }
     }
@@ -384,15 +339,11 @@ private struct SyntaxHighlightedText: View {
     private func highlight() {
         let src = code
         let lang = language
-        cpuLog.info("[SyntaxHighlight] highlight() called")
+        guard cached == nil else { return }
         Task.detached(priority: .userInitiated) {
             let result = Self.performHighlight(code: src, language: lang)
             await MainActor.run {
-                guard code == src else {
-                    cpuLog.warning("[SyntaxHighlight] highlight() STALE — discarding")
-                    return
-                }
-                cpuLog.info("[SyntaxHighlight] highlight() APPLIED")
+                guard code == src else { return }
                 cached = result
             }
         }
