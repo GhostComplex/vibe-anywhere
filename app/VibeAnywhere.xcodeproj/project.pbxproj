@@ -20,6 +20,7 @@
 		A10011 /* NewSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20011 /* NewSessionView.swift */; };
 		A10012 /* SessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20012 /* SessionViewModel.swift */; };
 		A10013 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20013 /* ChatViewModel.swift */; };
+		A10025 /* MessageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20025 /* MessageStore.swift */; };
 		A10014 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20014 /* ChatView.swift */; };
 		A10015 /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20015 /* MessageBubble.swift */; };
 		A10016 /* ConnectionConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20016 /* ConnectionConfigTests.swift */; };
@@ -56,6 +57,7 @@
 		A20011 /* NewSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewSessionView.swift; sourceTree = "<group>"; };
 		A20012 /* SessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionViewModel.swift; sourceTree = "<group>"; };
 		A20013 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		A20025 /* MessageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageStore.swift; sourceTree = "<group>"; };
 		A20014 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		A20015 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
 		A20016 /* ConnectionConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionConfigTests.swift; sourceTree = "<group>"; };
@@ -159,6 +161,7 @@
 			children = (
 				A20012 /* SessionViewModel.swift */,
 				A20013 /* ChatViewModel.swift */,
+				A20025 /* MessageStore.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -275,6 +278,7 @@
 				A10011 /* NewSessionView.swift in Sources */,
 				A10012 /* SessionViewModel.swift in Sources */,
 				A10013 /* ChatViewModel.swift in Sources */,
+				A10025 /* MessageStore.swift in Sources */,
 				A10014 /* ChatView.swift in Sources */,
 				A10015 /* MessageBubble.swift in Sources */,
 				A10018 /* PermissionViews.swift in Sources */,

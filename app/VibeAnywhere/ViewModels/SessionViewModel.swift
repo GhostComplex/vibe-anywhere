@@ -74,7 +74,7 @@ final class SessionViewModel {
         let chatVM = chatViewModel(for: sessionId)
         // Only expect replay if the chatVM has no messages (fresh or evicted from cache)
         if chatVM.messages.isEmpty {
-            chatVM.isLoadingHistory = true
+            chatVM.messages.beginReplay()
         }
         wsService.send(.sessionResume(sessionId: sessionId))
         onSelectSession?(sessionId)
@@ -83,7 +83,7 @@ final class SessionViewModel {
     func resumeHostSession(_ session: HostSessionInfo) {
         // Pre-create chatVM so it receives replay events before session/created arrives
         let chatVM = chatViewModel(for: session.sessionId)
-        chatVM.isLoadingHistory = true
+        chatVM.messages.beginReplay()
         wsService.send(.hostSessionResume(sessionId: session.sessionId, cwd: session.cwd))
         isLoading = true
         hostSessions.removeAll { $0.sessionId == session.sessionId }

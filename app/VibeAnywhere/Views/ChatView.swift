@@ -8,23 +8,22 @@ struct ChatView: View {
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
-        let _ = print("[ChatView] body evaluated")
         ZStack {
             Theme.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 ZStack {
-                    if viewModel.messages.isEmpty && !viewModel.isWaiting && !viewModel.isLoadingHistory {
+                    if viewModel.messages.isEmpty && !viewModel.isWaiting && !viewModel.messages.isLoadingHistory {
                         EmptyStateView { chip in
                             inputText = chip
                             send()
                         }
                     } else {
                         messageList
-                            .opacity(viewModel.isLoadingHistory ? 0 : 1)
+                            .opacity(viewModel.messages.isLoadingHistory ? 0 : 1)
                     }
 
-                    if viewModel.isLoadingHistory {
+                    if viewModel.messages.isLoadingHistory {
                         VStack(spacing: 8) {
                             ProgressView()
                                 .scaleEffect(1.2)
@@ -34,7 +33,7 @@ struct ChatView: View {
                         }
                     }
                 }
-                .animation(.easeOut(duration: 0.3), value: viewModel.isLoadingHistory)
+                .animation(.easeOut(duration: 0.3), value: viewModel.messages.isLoadingHistory)
 
                 usageBar
 
@@ -78,11 +77,10 @@ struct ChatView: View {
     // MARK: - Messages
 
     private var messageList: some View {
-        let _ = print("[ChatView] messageList evaluated, count=\(viewModel.messages.count)")
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    ForEach(viewModel.messages) { message in
+                    ForEach(viewModel.messages.items) { message in
                         if message.isStreaming {
                             StreamingBubble(viewModel: viewModel)
                                 .id(message.id)
@@ -95,13 +93,13 @@ struct ChatView: View {
                 .padding()
             }
             .onChange(of: viewModel.messages.count) { _, _ in
-                if !viewModel.isLoadingHistory { debouncedScroll(proxy) }
+                if !viewModel.messages.isLoadingHistory { debouncedScroll(proxy) }
             }
             .onChange(of: viewModel.isWaiting) { old, new in
                 // Scroll when streaming ends (isWaiting true→false)
                 if old && !new { debouncedScroll(proxy) }
             }
-            .onChange(of: viewModel.isLoadingHistory) { old, new in
+            .onChange(of: viewModel.messages.isLoadingHistory) { old, new in
                 if old && !new { delayedScroll(proxy) }
             }
         }
