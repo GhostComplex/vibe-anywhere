@@ -8,7 +8,6 @@ struct ChatView: View {
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
-        let _ = print("[ChatView] body evaluated")
         ZStack {
             Theme.background.ignoresSafeArea()
 
@@ -78,13 +77,12 @@ struct ChatView: View {
     // MARK: - Messages
 
     private var messageList: some View {
-        let _ = print("[ChatView] messageList evaluated, count=\(viewModel.messages.count)")
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(viewModel.messages) { message in
                         if message.isStreaming {
-                            StreamingBubble(viewModel: viewModel)
+                            StreamingBubble(streaming: viewModel.streaming)
                                 .id(message.id)
                         } else {
                             MessageBubble(message: message)

@@ -187,17 +187,17 @@ struct MessageBubble: View {
 
 // MARK: - Streaming Bubble (isolated observation scope)
 
-/// A separate view struct so that reading `viewModel.streamingText`
-/// does NOT cause the parent ForEach to re-diff the entire messages array.
+/// A separate view that observes ONLY the StreamingState object.
+/// Because StreamingState is @ObservationIgnored on ChatViewModel,
+/// chunk updates here never cause ForEach to diff the messages array.
 struct StreamingBubble: View {
-    let viewModel: ChatViewModel
+    let streaming: StreamingState
 
     var body: some View {
-        let _ = print("[StreamingBubble] body evaluated, text.count=\(viewModel.streamingText.count) tools=\(viewModel.streamingToolUses.count)")
         HStack {
             VStack(alignment: .leading, spacing: 8) {
-                if !viewModel.streamingText.isEmpty {
-                    Text(viewModel.streamingText)
+                if !streaming.text.isEmpty {
+                    Text(streaming.text)
                         .textSelection(.enabled)
                         .foregroundStyle(Theme.textPrimary)
                         .padding(.horizontal, 14)
@@ -218,7 +218,7 @@ struct StreamingBubble: View {
                         .shadow(color: Theme.cardShadow, radius: 4, y: 2)
                 }
 
-                ForEach(viewModel.streamingToolUses) { tool in
+                ForEach(streaming.toolUses) { tool in
                     HStack(spacing: 8) {
                         Circle()
                             .fill(toolStatusColor(tool.status))
@@ -243,7 +243,7 @@ struct StreamingBubble: View {
                     .shadow(color: Theme.cardShadow, radius: 2, y: 1)
                 }
 
-                if viewModel.streamingText.isEmpty && viewModel.streamingToolUses.isEmpty {
+                if streaming.text.isEmpty && streaming.toolUses.isEmpty {
                     StreamingDots()
                 }
             }

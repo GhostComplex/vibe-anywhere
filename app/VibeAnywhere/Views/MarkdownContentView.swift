@@ -241,19 +241,30 @@ struct MarkdownContentView: View {
 private struct CachedMarkdownText: View {
     let content: String
     @State private var attributed: AttributedString?
+    @State private var lastParsed: String = ""
 
     var body: some View {
         Text(attributed ?? AttributedString(content))
             .textSelection(.enabled)
             .foregroundStyle(Theme.textPrimary)
-            .onAppear { parse() }
-            .onChange(of: content) { _, _ in parse() }
+            .onAppear { parseIfNeeded() }
+            .onChange(of: content) { _, _ in parseIfNeeded() }
     }
 
-    private func parse() {
-        attributed = (try? AttributedString(markdown: content, options: .init(
-            interpretedSyntax: .inlineOnlyPreservingWhitespace
-        ))) ?? AttributedString(content)
+    private func parseIfNeeded() {
+        let current = content
+        guard current != lastParsed else { return }
+        lastParsed = current
+        Task.detached(priority: .userInitiated) {
+            let result = (try? AttributedString(markdown: current, options: .init(
+                interpretedSyntax: .inlineOnlyPreservingWhitespace
+            ))) ?? AttributedString(current)
+            await MainActor.run {
+                // Only apply if content hasn't changed while we were parsing
+                guard current == lastParsed else { return }
+                attributed = result
+            }
+        }
     }
 }
 
@@ -315,11 +326,27 @@ private struct SyntaxHighlightedText: View {
         Text(cached ?? AttributedString(code))
             .font(.system(.caption, design: .monospaced))
             .textSelection(.enabled)
-            .onAppear { highlight() }
-            .onChange(of: code) { _, _ in highlight() }
+            .onAppear { highlightIfNeeded() }
+            .onChange(of: code) { _, _ in highlightIfNeeded() }
     }
 
-    private func highlight() {
+    @State private var lastHighlighted: String = ""
+
+    private func highlightIfNeeded() {
+        let current = code
+        guard current != lastHighlighted else { return }
+        lastHighlighted = current
+        let lang = language
+        Task.detached(priority: .userInitiated) {
+            let result = Self.performHighlight(code: current, language: lang)
+            await MainActor.run {
+                guard current == lastHighlighted else { return }
+                cached = result
+            }
+        }
+    }
+
+    private nonisolated static func performHighlight(code: String, language: String) -> AttributedString {
         let lang = language.lowercased()
         let langKey: String
         switch lang {
@@ -336,12 +363,12 @@ private struct SyntaxHighlightedText: View {
         let lines = code.components(separatedBy: "\n")
         for (idx, line) in lines.enumerated() {
             if idx > 0 { result.append(AttributedString("\n")) }
-            result.append(highlightLine(line, kw: keywords, types: typeSet))
+            result.append(Self.highlightLine(line, kw: keywords, types: typeSet))
         }
-        cached = result
+        return result
     }
 
-    private func highlightLine(_ line: String, kw: Set<String>, types: Set<String>) -> AttributedString {
+    private nonisolated static func highlightLine(_ line: String, kw: Set<String>, types: Set<String>) -> AttributedString {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         if trimmed.hasPrefix("//") || trimmed.hasPrefix("#") {
             var a = AttributedString(line)
@@ -415,7 +442,7 @@ private struct SyntaxHighlightedText: View {
         return result
     }
 
-    private func scanString(_ line: String, from start: String.Index, quote: Character) -> String.Index {
+    private nonisolated static func scanString(_ line: String, from start: String.Index, quote: Character) -> String.Index {
         var i = line.index(after: start)
         while i < line.endIndex {
             if line[i] == "\\" && line.index(after: i) < line.endIndex {

@@ -60,11 +60,11 @@ final class ChatViewModel {
     private(set) var hasError = false
     var isLoadingHistory = false
     private var replayBuffer: [ChatMessage] = []
-    /// Streaming text is kept separate from `messages` so that chunk
-    /// updates do NOT mutate the array and do NOT trigger a full
-    /// ForEach diff / view-tree rebuild.
-    private(set) var streamingText: String = ""
-    private(set) var streamingToolUses: [ToolUseInfo] = []
+
+    /// Streaming state is a separate @Observable so that chunk updates
+    /// do NOT invalidate the ForEach over messages.
+    @ObservationIgnored let streaming = StreamingState()
+
     private(set) var turnUsage: TurnUsage?
     private(set) var sessionAgent: String = "claude"
     private(set) var currentModel: String?
@@ -91,8 +91,9 @@ final class ChatViewModel {
         // Add user message
         messages.append(ChatMessage(role: .user, text: trimmed))
 
-        // Start assistant placeholder
+        // Add a streaming placeholder and activate StreamingState
         messages.append(ChatMessage(role: .assistant, text: "", isStreaming: true))
+        streaming.begin()
         isWaiting = true
         turnUsage = nil
 
@@ -157,7 +158,7 @@ final class ChatViewModel {
             if replay {
                 appendReplayAssistantText(content)
             } else {
-                appendToStreaming(content)
+                streaming.appendText(content)
             }
 
         case .eventUserText(let sid, let content, let replay):
@@ -165,14 +166,13 @@ final class ChatViewModel {
             if replay {
                 appendReplayUserMessage(content)
             }
-            // Non-replay user_text is not expected (user messages are added locally)
 
         case .eventToolCall(let sid, let toolCallId, let tool, let status, let replay):
             guard sid == sessionId else { return }
             if replay {
                 appendReplayToolCall(toolCallId: toolCallId, tool: tool, status: status)
             } else {
-                appendToolCallV2(toolCallId: toolCallId, tool: tool, status: status)
+                streaming.appendToolCall(id: toolCallId, tool: tool, status: status)
             }
 
         case .eventToolCallUpdate(let sid, let toolCallId, let status, _, let replay):
@@ -180,7 +180,7 @@ final class ChatViewModel {
             if replay {
                 updateReplayToolCall(toolCallId: toolCallId, status: status)
             } else {
-                updateToolCall(toolCallId: toolCallId, status: status)
+                streaming.updateToolCall(id: toolCallId, status: status)
             }
 
         case .eventReplayEnd(let sid):
@@ -212,7 +212,6 @@ final class ChatViewModel {
             sessionAgent = agent
             availableModels = models
             availableModes = modes
-            // Set current selections from first available if not yet set
             if currentModel == nil, let first = models?.first {
                 currentModel = first
             }
@@ -230,33 +229,14 @@ final class ChatViewModel {
 
     // MARK: - Private
 
-    private func appendToStreaming(_ text: String) {
-        print("[ChatVM] appendToStreaming len=\(text.count) total=\(streamingText.count)")
-        streamingText += text
-    }
-
-    private func appendToolCallV2(toolCallId: String, tool: String, status: String) {
-        streamingToolUses.append(
-            ToolUseInfo(id: toolCallId, tool: tool, status: status)
-        )
-    }
-
-    private func updateToolCall(toolCallId: String, status: String?) {
-        if let toolIndex = streamingToolUses.firstIndex(where: { $0.id == toolCallId }),
-           let status {
-            streamingToolUses[toolIndex].status = status
-        }
-    }
-
     private func finalizeStreaming() {
         guard let lastIndex = messages.indices.last,
               messages[lastIndex].role == .assistant else { return }
 
-        messages[lastIndex].text = streamingText
-        messages[lastIndex].toolUses = streamingToolUses
+        let result = streaming.finalize()
+        messages[lastIndex].text = result.text
+        messages[lastIndex].toolUses = result.toolUses
         messages[lastIndex].isStreaming = false
-        streamingText = ""
-        streamingToolUses = []
         isWaiting = false
     }
 
@@ -266,11 +246,10 @@ final class ChatViewModel {
         if let lastIndex = messages.indices.last,
            messages[lastIndex].role == .assistant,
            messages[lastIndex].isStreaming {
-            messages[lastIndex].text = streamingText
-            messages[lastIndex].toolUses = streamingToolUses
+            let result = streaming.finalize()
+            messages[lastIndex].text = result.text
+            messages[lastIndex].toolUses = result.toolUses
             messages[lastIndex].isStreaming = false
-            streamingText = ""
-            streamingToolUses = []
         }
         messages.append(ChatMessage(role: .assistant, text: message, isError: true))
         hasError = true
@@ -328,7 +307,6 @@ final class ChatViewModel {
             options: options,
             receivedAt: Date()
         )
-        // Auto-deny after timeout
         permissionTimer = Task { [weak self] in
             try? await Task.sleep(for: .seconds(Self.permissionTimeoutSeconds))
             guard !Task.isCancelled else { return }
