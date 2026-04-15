@@ -11,7 +11,6 @@ struct ChatMessage: Identifiable, Sendable {
     let role: ChatMessageRole
     var text: String
     var toolUses: [ToolUseInfo] = []
-    var isStreaming: Bool = false
     var isError: Bool = false
 }
 
@@ -55,10 +54,14 @@ struct PermissionRecord: Identifiable, Sendable {
 @Observable
 @MainActor
 final class ChatViewModel {
-    private(set) var messages: [ChatMessage] = []
+    let messages = MessageStore()
     private(set) var isWaiting = false
     private(set) var hasError = false
-    var isLoadingHistory = false
+
+    /// Streaming state — isolated @Observable so chunk updates
+    /// never trigger ForEach diff on the messages array.
+    @ObservationIgnored let streaming = StreamingState()
+
     private(set) var turnUsage: TurnUsage?
     private(set) var sessionAgent: String = "claude"
     private(set) var currentModel: String?
@@ -82,11 +85,16 @@ final class ChatViewModel {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !hasError else { return }
 
-        // Add user message
-        messages.append(ChatMessage(role: .user, text: trimmed))
+        // Finalize any in-flight streaming before starting a new turn
+        if streaming.isActive {
+            let result = streaming.finalize()
+            if !result.text.isEmpty || !result.toolUses.isEmpty {
+                messages.appendAssistant(text: result.text, toolUses: result.toolUses)
+            }
+        }
 
-        // Start assistant placeholder
-        messages.append(ChatMessage(role: .assistant, text: "", isStreaming: true))
+        messages.appendUser(trimmed)
+        streaming.begin()
         isWaiting = true
         turnUsage = nil
 
@@ -125,7 +133,6 @@ final class ChatViewModel {
 
     func denyPermission() {
         guard let request = pendingPermission else { return }
-        // Find a reject/deny option
         let denyOption = request.options.first { $0.kind.contains("reject") }
             ?? request.options.last
         if let option = denyOption {
@@ -145,41 +152,41 @@ final class ChatViewModel {
 
     func handleDaemonMessage(_ msg: DaemonMessage) {
         switch msg {
-        // Events
         case .eventText(let sid, let content, let replay):
             guard sid == sessionId else { return }
             if replay {
-                appendReplayAssistantText(content)
+                messages.appendReplayAssistant(content)
             } else {
-                appendToStreaming(content)
+                streaming.appendText(content)
             }
 
         case .eventUserText(let sid, let content, let replay):
             guard sid == sessionId else { return }
             if replay {
-                appendReplayUserMessage(content)
+                messages.appendReplayUser(content)
             }
-            // Non-replay user_text is not expected (user messages are added locally)
 
         case .eventToolCall(let sid, let toolCallId, let tool, let status, let replay):
             guard sid == sessionId else { return }
             if replay {
-                appendReplayToolCall(toolCallId: toolCallId, tool: tool, status: status)
+                messages.appendReplayToolCall(toolCallId: toolCallId, tool: tool, status: status)
             } else {
-                appendToolCallV2(toolCallId: toolCallId, tool: tool, status: status)
+                streaming.appendToolCall(id: toolCallId, tool: tool, status: status)
             }
 
         case .eventToolCallUpdate(let sid, let toolCallId, let status, _, let replay):
             guard sid == sessionId else { return }
             if replay {
-                updateReplayToolCall(toolCallId: toolCallId, status: status)
+                messages.updateReplayToolCall(toolCallId: toolCallId, status: status)
             } else {
-                updateToolCall(toolCallId: toolCallId, status: status)
+                streaming.updateToolCall(id: toolCallId, status: status)
             }
 
         case .eventReplayEnd(let sid):
             guard sid == sessionId else { return }
-            isLoadingHistory = false
+            if messages.isLoadingHistory {
+                messages.endReplay()
+            }
 
         case .eventPermissionRequest(let sid, let requestId, let tool, let options):
             guard sid == sessionId else { return }
@@ -202,7 +209,6 @@ final class ChatViewModel {
             sessionAgent = agent
             availableModels = models
             availableModes = modes
-            // Set current selections from first available if not yet set
             if currentModel == nil, let first = models?.first {
                 currentModel = first
             }
@@ -218,105 +224,25 @@ final class ChatViewModel {
         }
     }
 
-    // MARK: - Private
-
-    private func appendToStreaming(_ text: String) {
-        guard let lastIndex = messages.indices.last,
-              messages[lastIndex].role == .assistant,
-              messages[lastIndex].isStreaming else { return }
-
-        messages[lastIndex].text += text
-    }
-
-    private func appendToolCallV2(toolCallId: String, tool: String, status: String) {
-        guard let lastIndex = messages.indices.last,
-              messages[lastIndex].role == .assistant,
-              messages[lastIndex].isStreaming else { return }
-
-        messages[lastIndex].toolUses.append(
-            ToolUseInfo(id: toolCallId, tool: tool, status: status)
-        )
-    }
-
-    private func updateToolCall(toolCallId: String, status: String?) {
-        guard let lastIndex = messages.indices.last,
-              messages[lastIndex].role == .assistant else { return }
-
-        if let toolIndex = messages[lastIndex].toolUses.firstIndex(where: { $0.id == toolCallId }),
-           let status {
-            messages[lastIndex].toolUses[toolIndex].status = status
-        }
-    }
+    // MARK: - Streaming lifecycle
 
     private func finalizeStreaming() {
-        guard let lastIndex = messages.indices.last,
-              messages[lastIndex].role == .assistant else { return }
-
-        messages[lastIndex].isStreaming = false
+        let result = streaming.finalize()
+        messages.appendAssistant(text: result.text, toolUses: result.toolUses)
         isWaiting = false
     }
 
     private func appendError(_ message: String) {
-        // Don't stack duplicate errors
         if hasError { return }
 
-        // Finalize any streaming message, then add error
-        if let lastIndex = messages.indices.last,
-           messages[lastIndex].role == .assistant,
-           messages[lastIndex].isStreaming {
-            messages[lastIndex].isStreaming = false
+        // If streaming was active, finalize it first
+        if streaming.isActive {
+            let result = streaming.finalize()
+            messages.appendAssistant(text: result.text, toolUses: result.toolUses)
         }
-        messages.append(ChatMessage(role: .assistant, text: message, isError: true))
+        messages.appendError(message)
         hasError = true
         isWaiting = false
-    }
-
-    // MARK: - Replay (history) helpers
-
-    private func appendReplayUserMessage(_ text: String) {
-        // Each user_message_chunk during replay may be a new user message
-        // or a continuation of the current one. ACP sends all chunks for a single
-        // message before moving to the next, so append to the last user message
-        // if it exists and is the most recent message.
-        if let lastIndex = messages.indices.last,
-           messages[lastIndex].role == .user {
-            messages[lastIndex].text += text
-        } else {
-            messages.append(ChatMessage(role: .user, text: text))
-        }
-    }
-
-    private func appendReplayAssistantText(_ text: String) {
-        // Append to the last assistant message if it's the most recent,
-        // otherwise start a new one. All replay messages are finalized (non-streaming).
-        if let lastIndex = messages.indices.last,
-           messages[lastIndex].role == .assistant {
-            messages[lastIndex].text += text
-        } else {
-            messages.append(ChatMessage(role: .assistant, text: text))
-        }
-    }
-
-    private func appendReplayToolCall(toolCallId: String, tool: String, status: String) {
-        // Ensure there's an assistant message to attach the tool call to
-        if messages.isEmpty || messages.last?.role != .assistant {
-            messages.append(ChatMessage(role: .assistant, text: ""))
-        }
-        let lastIndex = messages.indices.last!
-        messages[lastIndex].toolUses.append(
-            ToolUseInfo(id: toolCallId, tool: tool, status: status)
-        )
-    }
-
-    private func updateReplayToolCall(toolCallId: String, status: String?) {
-        // Find the tool call across all messages (replay order may differ)
-        for i in messages.indices.reversed() {
-            if let toolIndex = messages[i].toolUses.firstIndex(where: { $0.id == toolCallId }),
-               let status {
-                messages[i].toolUses[toolIndex].status = status
-                return
-            }
-        }
     }
 
     // MARK: - Permission handling
@@ -330,7 +256,6 @@ final class ChatViewModel {
             options: options,
             receivedAt: Date()
         )
-        // Auto-deny after timeout
         permissionTimer = Task { [weak self] in
             try? await Task.sleep(for: .seconds(Self.permissionTimeoutSeconds))
             guard !Task.isCancelled else { return }

@@ -13,11 +13,10 @@ final class SessionViewModel {
     let wsService: WebSocketService
 
     /// Currently active chat view model (receives stream events)
-    var activeChatVM: ChatViewModel?
+    @ObservationIgnored var activeChatVM: ChatViewModel?
 
-    /// Cache of chat view models by session ID (LRU, max 10)
-    private var chatVMs: [String: ChatViewModel] = [:]
-    private var chatVMOrder: [String] = [] // oldest first
+    @ObservationIgnored private var chatVMs: [String: ChatViewModel] = [:]
+    @ObservationIgnored private var chatVMOrder: [String] = [] // oldest first
     private let maxCachedVMs = 10
 
     /// Callback when a session is created or tapped (navigate to chat)
@@ -72,6 +71,11 @@ final class SessionViewModel {
     }
 
     func resumeSession(_ sessionId: String) {
+        let chatVM = chatViewModel(for: sessionId)
+        // Only expect replay if the chatVM has no messages (fresh or evicted from cache)
+        if chatVM.messages.isEmpty {
+            chatVM.messages.beginReplay()
+        }
         wsService.send(.sessionResume(sessionId: sessionId))
         onSelectSession?(sessionId)
     }
@@ -79,7 +83,7 @@ final class SessionViewModel {
     func resumeHostSession(_ session: HostSessionInfo) {
         // Pre-create chatVM so it receives replay events before session/created arrives
         let chatVM = chatViewModel(for: session.sessionId)
-        chatVM.isLoadingHistory = true
+        chatVM.messages.beginReplay()
         wsService.send(.hostSessionResume(sessionId: session.sessionId, cwd: session.cwd))
         isLoading = true
         hostSessions.removeAll { $0.sessionId == session.sessionId }

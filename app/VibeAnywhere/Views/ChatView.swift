@@ -4,7 +4,6 @@ struct ChatView: View {
     let viewModel: ChatViewModel
     @State private var inputText = ""
     @State private var showSettings = false
-    @State private var scrollTask: Task<Void, Never>?
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
@@ -12,14 +11,28 @@ struct ChatView: View {
             Theme.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                if viewModel.messages.isEmpty && !viewModel.isWaiting {
-                    EmptyStateView { chip in
-                        inputText = chip
-                        send()
+                ZStack {
+                    if viewModel.messages.isEmpty && !viewModel.isWaiting && !viewModel.messages.isLoadingHistory {
+                        EmptyStateView { chip in
+                            inputText = chip
+                            send()
+                        }
+                    } else {
+                        messageList
+                            .opacity(viewModel.messages.isLoadingHistory ? 0 : 1)
                     }
-                } else {
-                    messageList
+
+                    if viewModel.messages.isLoadingHistory {
+                        VStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Loading history…")
+                                .font(.caption)
+                                .foregroundStyle(Theme.textTertiary)
+                        }
+                    }
                 }
+                .animation(.easeOut(duration: 0.3), value: viewModel.messages.isLoadingHistory)
 
                 usageBar
 
@@ -57,24 +70,56 @@ struct ChatView: View {
         }
         .animation(.spring(duration: 0.3), value: viewModel.pendingPermission != nil)
         .onAppear { isInputFocused = true }
-        .onDisappear { scrollTask?.cancel() }
     }
 
     // MARK: - Messages
 
     private var messageList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(viewModel.messages) { message in
-                        MessageBubble(message: message)
-                            .id(message.id)
+        return ScrollViewReader { proxy in
+            ZStack(alignment: .bottom) {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(viewModel.messages.items) { message in
+                            MessageBubble(message: message)
+                                .id(message.id)
+                        }
+
+                        // Invisible spacer to reserve room when streaming
+                        if viewModel.streaming.isActive {
+                            Color.clear
+                                .frame(height: 120)
+                                .id("streaming-spacer")
+                        }
+                    }
+                    .padding()
+                }
+
+                // Streaming overlay — pinned to bottom, outside scroll layout
+                if viewModel.streaming.isActive {
+                    StreamingBubble(streaming: viewModel.streaming)
+                        .padding(.horizontal)
+                        .padding(.bottom, 4)
+                        .transition(.opacity)
+                }
+            }
+            .onChange(of: viewModel.messages.count) { _, _ in
+                if !viewModel.messages.isLoadingHistory {
+                    scrollToBottom(proxy)
+                }
+            }
+            .onChange(of: viewModel.streaming.isActive) { old, new in
+                if !old && new { scrollToBottom(proxy) }
+                if old && !new { scrollToBottom(proxy) }
+            }
+            .onChange(of: viewModel.messages.isLoadingHistory) { old, new in
+                if old && !new {
+                    // Delay after replay to let layout settle
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(300))
+                        scrollToBottom(proxy)
                     }
                 }
-                .padding()
             }
-            .onChange(of: viewModel.messages.count) { _, _ in debouncedScroll(proxy) }
-            .onChange(of: viewModel.messages.last?.text) { _, _ in debouncedScroll(proxy) }
         }
     }
 
@@ -142,15 +187,6 @@ struct ChatView: View {
         let text = inputText
         inputText = ""
         viewModel.sendMessage(text)
-    }
-
-    private func debouncedScroll(_ proxy: ScrollViewProxy) {
-        scrollTask?.cancel()
-        scrollTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(16))
-            guard !Task.isCancelled else { return }
-            scrollToBottom(proxy)
-        }
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {

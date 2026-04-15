@@ -1,5 +1,4 @@
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { WebSocket } from 'ws';
 import { AcpManager, type AcpManagerEvent } from './acp-manager.js';
 import { send, sendError } from './server.js';
@@ -10,6 +9,7 @@ export interface SessionInfo {
   sessionId: string;
   cwd: string;
   agent: string;
+  title: string | null;
   createdAt: number;
   lastMessageAt: number;
 }
@@ -33,6 +33,7 @@ export class SessionManager {
 
     this.acpManager = new AcpManager({
       acpxPath: config.acpx.path,
+      claudePath: config.claudePath,
       permissionMode: config.acpx.permissionMode,
       timeout: config.acpx.timeout,
     });
@@ -51,7 +52,7 @@ export class SessionManager {
         this.listSessions(ws);
         break;
       case 'session/resume':
-        this.resumeSession(ws, msg.sessionId);
+        void this.resumeSession(ws, msg.sessionId);
         break;
       case 'session/message': {
         const trimmed = msg.content.trim();
@@ -125,6 +126,7 @@ export class SessionManager {
           sessionId: result.sessionId,
           cwd: resolved,
           agent,
+          title: null,
           createdAt: Date.now(),
           lastMessageAt: Date.now(),
         },
@@ -205,11 +207,12 @@ export class SessionManager {
       sessionId: s.info.sessionId,
       cwd: s.info.cwd,
       agent: s.info.agent,
+      title: s.info.title,
     }));
     send(ws, { type: 'session/list', sessions });
   }
 
-  private resumeSession(ws: WebSocket, sessionId: string): void {
+  private async resumeSession(ws: WebSocket, sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) {
       sendError(ws, `Session not found: ${sessionId}`);
@@ -221,8 +224,23 @@ export class SessionManager {
       session.reconnectTimer = null;
     }
 
+    // Only replay history when the session had no active client (app reconnecting)
+    const needsReplay = session.client === null || session.client.readyState !== WebSocket.OPEN;
     session.client = ws;
-    console.log(`[session] Resumed ${sessionId}`);
+
+    if (needsReplay) {
+      try {
+        await this.acpManager.resumeHostSession(session.info.agent, sessionId, session.info.cwd);
+      } catch (err) {
+        console.warn(`[session] Replay failed for ${sessionId}: ${(err as Error).message}`);
+        send(ws, { type: 'event/replay_end', sessionId });
+      }
+    } else {
+      // No replay needed — still send replay_end so the client clears loading state
+      send(ws, { type: 'event/replay_end', sessionId });
+    }
+
+    console.log(`[session] Resumed ${sessionId} (replay: ${needsReplay})`);
     send(ws, { type: 'session/created', sessionId, cwd: session.info.cwd });
   }
 
@@ -263,9 +281,9 @@ export class SessionManager {
   }
 
   private async resumeHostSession(ws: WebSocket, sessionId: string, cwd: string, agent: string): Promise<void> {
-    // If already tracked, just re-attach the WS client
+    // If already tracked, resume with replay
     if (this.sessions.has(sessionId)) {
-      this.resumeSession(ws, sessionId);
+      await this.resumeSession(ws, sessionId);
       return;
     }
 
@@ -281,6 +299,7 @@ export class SessionManager {
         sessionId,
         cwd: resolved,
         agent,
+        title: null,
         createdAt: Date.now(),
         lastMessageAt: Date.now(),
       },
@@ -324,6 +343,10 @@ export class SessionManager {
         send(ws, { type: 'event/text', sessionId, content: event.content, ...(event.replay && { replay: true }) });
         break;
       case 'user_text':
+        // Capture first user message as session title (including during replay)
+        if (!session.info.title) {
+          session.info.title = event.content.slice(0, 100);
+        }
         send(ws, { type: 'event/user_text', sessionId, content: event.content, ...(event.replay && { replay: true }) });
         break;
       case 'tool_call':

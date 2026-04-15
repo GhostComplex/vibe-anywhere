@@ -90,7 +90,7 @@ export interface SessionDestroyedMsg {
 
 export interface SessionListResponseMsg {
   type: 'session/list';
-  sessions: Array<{ sessionId: string; cwd: string; agent?: string }>;
+  sessions: Array<{ sessionId: string; cwd: string; agent?: string; title?: string | null }>;
 }
 
 export interface ErrorMsg {
