@@ -110,6 +110,20 @@ final class SessionViewModel {
         return vm
     }
 
+    var groupedHostSessions: [(path: String, sessions: [HostSessionInfo])] {
+        let allowed = wsService.allowedDirs
+        let filtered = hostSessions.filter { session in
+            allowed.isEmpty || allowed.contains { session.cwd == $0 || session.cwd.hasPrefix($0 + "/") }
+        }
+        let grouped = Dictionary(grouping: filtered) { $0.cwd }
+        return grouped.map { (path: $0.key, sessions: $0.value) }
+            .sorted { a, b in
+                let aDate = a.sessions.compactMap(\.updatedAt).max() ?? ""
+                let bDate = b.sessions.compactMap(\.updatedAt).max() ?? ""
+                return aDate > bDate
+            }
+    }
+
     func clearError() {
         error = nil
     }
@@ -127,20 +141,18 @@ final class SessionViewModel {
         case .eventPermissionRequest:
             activeChatVM?.handleDaemonMessage(msg)
             return
-        case .error:
-            activeChatVM?.handleDaemonMessage(msg)
         default:
             break
         }
 
         isLoading = false
-        error = nil
 
         switch msg {
         case .sessionList(let list):
             sessions = list
 
         case .sessionCreated(let sessionId, _):
+            error = nil
             refreshSessions()
             onSelectSession?(sessionId)
 
@@ -152,9 +164,20 @@ final class SessionViewModel {
             hostSessionsSupported = supported
 
         case .error(let message, _):
-            if activeChatVM == nil {
-                error = message
+            if let chatVM = activeChatVM, chatVM.messages.isLoadingHistory {
+                // Session failed during resume/create — still in replay state.
+                // Clear loading state, pop navigation, and clean up.
+                chatVM.messages.endReplay()
+                let sid = chatVM.sessionId
+                onSessionDestroyed?(sid)
+                chatVMs.removeValue(forKey: sid)
+                chatVMOrder.removeAll { $0 == sid }
+                activeChatVM = nil
+            } else {
+                // Normal error during an active session — forward to chatVM
+                activeChatVM?.handleDaemonMessage(msg)
             }
+            error = message
 
         default:
             break

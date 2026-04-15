@@ -70,6 +70,16 @@ struct ContentView: View {
                 }
                 handleTimerForState(newState)
             }
+            .alert("Error", isPresented: .init(
+                get: { sessionVM?.error != nil },
+                set: { if !$0 { sessionVM?.clearError() } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                if let error = sessionVM?.error {
+                    Text(error)
+                }
+            }
         }
         .preferredColorScheme(.light)
     }

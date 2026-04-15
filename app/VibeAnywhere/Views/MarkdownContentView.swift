@@ -271,19 +271,19 @@ private struct CachedMarkdownText: View {
 
 // MARK: - Syntax Highlighting
 
-private struct SyntaxHighlightedText: View {
-    let code: String
-    let language: String
-    @State private var cached: AttributedString?
+/// Constants for syntax highlighting — extracted to a Sendable namespace
+/// so they can be accessed from nonisolated static functions without
+/// requiring nonisolated(unsafe).
+private enum SyntaxColors {
+    static let keyword = Color(hex: 0xCF222E)
+    static let string = Color(hex: 0x0A3069)
+    static let comment = Color(hex: 0x6E7781)
+    static let type = Color(hex: 0x8250DF)
+    static let number = Color(hex: 0x0550AE)
+}
 
-    private static let kwColor = Color(hex: 0xCF222E)
-    private static let strColor = Color(hex: 0x0A3069)
-    private static let commentColor = Color(hex: 0x6E7781)
-    private static let typeColor = Color(hex: 0x8250DF)
-    private static let numColor = Color(hex: 0x0550AE)
-
-    // Pre-built keyword/type sets (static, allocated once)
-    private static let kwSets: [String: Set<String>] = [
+private enum SyntaxKeywords {
+    static let sets: [String: Set<String>] = [
         "swift": ["import", "func", "var", "let", "class", "struct", "enum", "protocol",
                   "if", "else", "guard", "return", "switch", "case", "default", "for",
                   "in", "while", "repeat", "break", "continue", "throw", "throws",
@@ -305,13 +305,13 @@ private struct SyntaxHighlightedText: View {
                    "not", "is", "in", "True", "False", "None", "self", "async", "await",
                    "global", "nonlocal", "del", "assert"],
     ]
-    private static let defaultKw: Set<String> = [
+    static let defaults: Set<String> = [
         "if", "else", "for", "while", "return", "function", "class",
         "var", "let", "const", "import", "export", "true", "false", "null",
         "nil", "void", "new", "this", "self", "switch", "case", "default",
         "break", "continue", "try", "catch", "throw"
     ]
-    private static let typeSets: [String: Set<String>] = [
+    static let types: [String: Set<String>] = [
         "swift": ["String", "Int", "Double", "Float", "Bool", "Array", "Dictionary",
                   "Set", "Optional", "Result", "Error", "URL", "Data", "Date", "UUID",
                   "View", "Color", "Text", "Image", "Button", "VStack", "HStack",
@@ -322,6 +322,12 @@ private struct SyntaxHighlightedText: View {
                        "void", "undefined", "Array", "Map", "Set", "Promise", "Record",
                        "Partial", "Required", "Readonly"],
     ]
+}
+
+private struct SyntaxHighlightedText: View {
+    let code: String
+    let language: String
+    @State private var cached: AttributedString?
 
     var body: some View {
         Text(cached ?? AttributedString(code))
@@ -359,8 +365,8 @@ private struct SyntaxHighlightedText: View {
         case "python", "py": langKey = "python"
         default: langKey = ""
         }
-        let keywords = kwSets[langKey] ?? defaultKw
-        let typeSet = typeSets[langKey] ?? []
+        let keywords = SyntaxKeywords.sets[langKey] ?? SyntaxKeywords.defaults
+        let typeSet = SyntaxKeywords.types[langKey] ?? []
 
         var result = AttributedString()
         let lines = code.components(separatedBy: "\n")
@@ -375,7 +381,7 @@ private struct SyntaxHighlightedText: View {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         if trimmed.hasPrefix("//") || trimmed.hasPrefix("#") {
             var a = AttributedString(line)
-            a.foregroundColor = Self.commentColor
+            a.foregroundColor = SyntaxColors.comment
             return a
         }
 
@@ -389,7 +395,7 @@ private struct SyntaxHighlightedText: View {
             if ch == "\"" || ch == "'" || ch == "`" {
                 let end = scanString(line, from: i, quote: ch)
                 var part = AttributedString(String(line[i..<end]))
-                part.foregroundColor = Self.strColor
+                part.foregroundColor = SyntaxColors.string
                 result.append(part)
                 i = end
                 continue
@@ -398,7 +404,7 @@ private struct SyntaxHighlightedText: View {
             // Inline comment
             if ch == "/" && line.index(after: i) < line.endIndex && line[line.index(after: i)] == "/" {
                 var part = AttributedString(String(line[i...]))
-                part.foregroundColor = Self.commentColor
+                part.foregroundColor = SyntaxColors.comment
                 result.append(part)
                 return result
             }
@@ -410,7 +416,7 @@ private struct SyntaxHighlightedText: View {
                     end = line.index(after: end)
                 }
                 var part = AttributedString(String(line[i..<end]))
-                part.foregroundColor = Self.numColor
+                part.foregroundColor = SyntaxColors.number
                 result.append(part)
                 i = end
                 continue
@@ -425,9 +431,9 @@ private struct SyntaxHighlightedText: View {
                 let word = String(line[i..<end])
                 var part = AttributedString(word)
                 if kw.contains(word) {
-                    part.foregroundColor = Self.kwColor
+                    part.foregroundColor = SyntaxColors.keyword
                 } else if types.contains(word) {
-                    part.foregroundColor = Self.typeColor
+                    part.foregroundColor = SyntaxColors.type
                 } else {
                     part.foregroundColor = Theme.textPrimary
                 }

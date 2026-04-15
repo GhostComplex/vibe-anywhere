@@ -69,7 +69,7 @@ enum ClientMessage: Encodable {
 // MARK: - Daemon → Client
 
 enum DaemonMessage {
-    case hello(version: Int)
+    case hello(version: Int, allowedDirs: [String])
     case sessionCreated(sessionId: String, cwd: String)
     case sessionDestroyed(sessionId: String)
     case sessionList(sessions: [SessionInfo])
@@ -102,7 +102,7 @@ extension DaemonMessage: Decodable {
     private enum CodingKeys: String, CodingKey {
         case type, sessionId, cwd, sessions, content, tool, message, version
         case toolCallId, status, requestId, options, agent, models, modes
-        case inputTokens, outputTokens, stopReason, supported, replay
+        case inputTokens, outputTokens, stopReason, supported, replay, allowedDirs
     }
 
     init(from decoder: Decoder) throws {
@@ -112,7 +112,8 @@ extension DaemonMessage: Decodable {
         switch type {
         case "hello":
             let version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 2
-            self = .hello(version: version)
+            let allowedDirs = try container.decodeIfPresent([String].self, forKey: .allowedDirs) ?? []
+            self = .hello(version: version, allowedDirs: allowedDirs)
         case "session/created":
             let sessionId = try container.decode(String.self, forKey: .sessionId)
             let cwd = try container.decode(String.self, forKey: .cwd)
