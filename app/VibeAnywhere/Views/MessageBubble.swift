@@ -1,13 +1,27 @@
 import SwiftUI
+import os.log
+
+private let cpuLog = Logger(subsystem: "com.ghostcomplex.VibeAnywhere", category: "CPUDebug")
 
 struct MessageBubble: View {
     let message: ChatMessage
     @State private var isUserTextExpanded = false
+    @State private var bodyEvalCount = 0
 
     private static let collapseLineLimit = 5
     private static let collapseCharLimit = 300
 
     var body: some View {
+        let _ = {
+            bodyEvalCount += 1
+            if bodyEvalCount % 10 == 1 || bodyEvalCount > 50 {
+                cpuLog.info("[MessageBubble] body eval #\(bodyEvalCount) role=\(String(describing: message.role)) text=\(String(message.text.prefix(30)))")
+            }
+            if bodyEvalCount > 50 {
+                cpuLog.fault("[MessageBubble] ⚠️ EXCESSIVE body evals: #\(bodyEvalCount) for message \(message.id)")
+            }
+        }()
+
         HStack {
             if message.role == .user { Spacer(minLength: 60) }
 
@@ -191,8 +205,19 @@ struct MessageBubble: View {
 /// ChatViewModel observation and ForEach diff.
 struct StreamingBubble: View {
     let streaming: StreamingState
+    @State private var bodyEvalCount = 0
 
     var body: some View {
+        let _ = {
+            bodyEvalCount += 1
+            if bodyEvalCount % 10 == 1 || bodyEvalCount > 50 {
+                cpuLog.info("[StreamingBubble] body eval #\(bodyEvalCount) textLen=\(streaming.text.count) tools=\(streaming.toolUses.count)")
+            }
+            if bodyEvalCount > 100 {
+                cpuLog.fault("[StreamingBubble] ⚠️ EXCESSIVE body evals: #\(bodyEvalCount)")
+            }
+        }()
+
         HStack {
             VStack(alignment: .leading, spacing: 8) {
                 if !streaming.text.isEmpty {

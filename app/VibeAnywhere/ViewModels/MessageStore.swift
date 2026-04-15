@@ -1,5 +1,8 @@
 import Foundation
 import Observation
+import os.log
+
+private let cpuLog = Logger(subsystem: "com.ghostcomplex.VibeAnywhere", category: "CPUDebug")
 
 /// Owns the message array and replay buffer.
 /// Isolated from streaming — ForEach only re-diffs when messages
@@ -18,15 +21,18 @@ final class MessageStore {
     // MARK: - Mutations
 
     func appendUser(_ text: String) {
+        cpuLog.info("[MessageStore] appendUser count=\(self.items.count + 1)")
         items.append(ChatMessage(role: .user, text: text))
     }
 
     /// Add a finalized assistant message.
     func appendAssistant(text: String, toolUses: [ToolUseInfo]) {
+        cpuLog.info("[MessageStore] appendAssistant count=\(self.items.count + 1) textLen=\(text.count) tools=\(toolUses.count)")
         items.append(ChatMessage(role: .assistant, text: text, toolUses: toolUses))
     }
 
     func appendError(_ message: String) {
+        cpuLog.info("[MessageStore] appendError: \(String(message.prefix(50)))")
         items.append(ChatMessage(role: .assistant, text: message, isError: true))
     }
 
@@ -38,6 +44,7 @@ final class MessageStore {
     }
 
     func endReplay() {
+        cpuLog.info("[MessageStore] endReplay — \(self.replayBuffer.count) messages")
         items = replayBuffer
         replayBuffer = []
         isLoadingHistory = false
