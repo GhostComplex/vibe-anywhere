@@ -121,7 +121,6 @@ final class SessionViewModel {
         switch msg {
         case .eventText, .eventUserText, .eventToolCall, .eventToolCallUpdate,
              .eventUsage, .eventTurnEnd, .eventReplayEnd, .eventError, .eventSessionInfo:
-            print("[SessionVM] forwarding \(String(describing: msg).prefix(60)) to chatVM")
             activeChatVM?.handleDaemonMessage(msg)
             return
         // permission requests also go to chat (for now — #47 will add modal)
