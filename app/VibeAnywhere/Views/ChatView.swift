@@ -4,7 +4,6 @@ struct ChatView: View {
     let viewModel: ChatViewModel
     @State private var inputText = ""
     @State private var showSettings = false
-    @State private var scrollTask: Task<Void, Never>?
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
@@ -71,7 +70,6 @@ struct ChatView: View {
         }
         .animation(.spring(duration: 0.3), value: viewModel.pendingPermission != nil)
         .onAppear { isInputFocused = true }
-        .onDisappear { scrollTask?.cancel() }
     }
 
     // MARK: - Messages
@@ -105,13 +103,23 @@ struct ChatView: View {
                 }
             }
             .onChange(of: viewModel.messages.count) { _, _ in
-                if !viewModel.messages.isLoadingHistory { debouncedScroll(proxy) }
+                if !viewModel.messages.isLoadingHistory {
+                    scrollToBottom(proxy)
+                }
             }
-            .onChange(of: viewModel.isWaiting) { old, new in
-                if old && !new { debouncedScroll(proxy) }
+            .onChange(of: viewModel.streaming.isActive) { old, new in
+                // Scroll when streaming starts or ends
+                if !old && new { scrollToBottom(proxy) }  // streaming started
+                if old && !new { scrollToBottom(proxy) }  // finalized
             }
             .onChange(of: viewModel.messages.isLoadingHistory) { old, new in
-                if old && !new { delayedScroll(proxy) }
+                if old && !new {
+                    // Delay after replay to let layout settle
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(300))
+                        scrollToBottom(proxy)
+                    }
+                }
             }
         }
     }
@@ -180,24 +188,6 @@ struct ChatView: View {
         let text = inputText
         inputText = ""
         viewModel.sendMessage(text)
-    }
-
-    private func debouncedScroll(_ proxy: ScrollViewProxy) {
-        scrollTask?.cancel()
-        scrollTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(16))
-            guard !Task.isCancelled else { return }
-            scrollToBottom(proxy)
-        }
-    }
-
-    private func delayedScroll(_ proxy: ScrollViewProxy) {
-        scrollTask?.cancel()
-        scrollTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(300))
-            guard !Task.isCancelled else { return }
-            scrollToBottom(proxy)
-        }
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
