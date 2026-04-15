@@ -78,25 +78,36 @@ struct ChatView: View {
 
     private var messageList: some View {
         return ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(viewModel.messages.items) { message in
-                        if message.isStreaming {
-                            StreamingBubble(streaming: viewModel.streaming)
-                                .id(message.id)
-                        } else {
+            ZStack(alignment: .bottom) {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(viewModel.messages.items) { message in
                             MessageBubble(message: message)
                                 .id(message.id)
                         }
+
+                        // Invisible spacer to reserve room when streaming
+                        if viewModel.streaming.isActive {
+                            Color.clear
+                                .frame(height: 120)
+                                .id("streaming-spacer")
+                        }
                     }
+                    .padding()
                 }
-                .padding()
+
+                // Streaming overlay — pinned to bottom, outside scroll layout
+                if viewModel.streaming.isActive {
+                    StreamingBubble(streaming: viewModel.streaming)
+                        .padding(.horizontal)
+                        .padding(.bottom, 4)
+                        .transition(.opacity)
+                }
             }
             .onChange(of: viewModel.messages.count) { _, _ in
                 if !viewModel.messages.isLoadingHistory { debouncedScroll(proxy) }
             }
             .onChange(of: viewModel.isWaiting) { old, new in
-                // Scroll when streaming ends (isWaiting true→false)
                 if old && !new { debouncedScroll(proxy) }
             }
             .onChange(of: viewModel.messages.isLoadingHistory) { old, new in

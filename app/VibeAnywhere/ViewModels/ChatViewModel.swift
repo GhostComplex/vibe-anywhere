@@ -11,7 +11,6 @@ struct ChatMessage: Identifiable, Sendable {
     let role: ChatMessageRole
     var text: String
     var toolUses: [ToolUseInfo] = []
-    var isStreaming: Bool = false
     var isError: Bool = false
 }
 
@@ -87,7 +86,6 @@ final class ChatViewModel {
         guard !trimmed.isEmpty, !hasError else { return }
 
         messages.appendUser(trimmed)
-        messages.appendStreamingPlaceholder()
         streaming.begin()
         isWaiting = true
         turnUsage = nil
@@ -222,18 +220,17 @@ final class ChatViewModel {
 
     private func finalizeStreaming() {
         let result = streaming.finalize()
-        messages.finalizeAssistant(text: result.text, toolUses: result.toolUses)
+        messages.appendAssistant(text: result.text, toolUses: result.toolUses)
         isWaiting = false
     }
 
     private func appendError(_ message: String) {
         if hasError { return }
 
-        if let lastIndex = messages.items.indices.last,
-           messages.items[lastIndex].role == .assistant,
-           messages.items[lastIndex].isStreaming {
+        // If streaming was active, finalize it first
+        if streaming.isActive {
             let result = streaming.finalize()
-            messages.finalizeAssistant(text: result.text, toolUses: result.toolUses)
+            messages.appendAssistant(text: result.text, toolUses: result.toolUses)
         }
         messages.appendError(message)
         hasError = true
