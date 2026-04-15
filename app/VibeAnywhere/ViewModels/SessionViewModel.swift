@@ -110,6 +110,20 @@ final class SessionViewModel {
         return vm
     }
 
+    var groupedHostSessions: [(path: String, sessions: [HostSessionInfo])] {
+        let allowed = wsService.allowedDirs
+        let filtered = hostSessions.filter { session in
+            allowed.isEmpty || allowed.contains { session.cwd == $0 || session.cwd.hasPrefix($0 + "/") }
+        }
+        let grouped = Dictionary(grouping: filtered) { $0.cwd }
+        return grouped.map { (path: $0.key, sessions: $0.value) }
+            .sorted { a, b in
+                let aDate = a.sessions.compactMap(\.updatedAt).max() ?? ""
+                let bDate = b.sessions.compactMap(\.updatedAt).max() ?? ""
+                return aDate > bDate
+            }
+    }
+
     func clearError() {
         error = nil
     }

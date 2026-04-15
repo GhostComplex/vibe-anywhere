@@ -5,6 +5,7 @@ struct NewSessionView: View {
     var onDismiss: () -> Void
 
     @State private var selectedPath: String?
+    @State private var manualPath = ""
     @State private var selectedAgent = "claude"
 
     private let agents = ["claude"]
@@ -34,7 +35,7 @@ struct NewSessionView: View {
                     Button("Create") {
                         createSession()
                     }
-                    .disabled(selectedPath == nil)
+                    .disabled(resolvedPath == nil)
                 }
             }
             .onAppear {
@@ -48,11 +49,37 @@ struct NewSessionView: View {
 
     // MARK: - Sections
 
+    private var resolvedPath: String? {
+        if allowedDirs.isEmpty {
+            let trimmed = manualPath.trimmingCharacters(in: .whitespaces)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        return selectedPath
+    }
+
     private var directorySection: some View {
         VStack(alignment: .leading, spacing: 0) {
             sectionHeader("PROJECT DIRECTORY")
 
-            VStack(spacing: 0) {
+            if allowedDirs.isEmpty {
+                // Fallback: free-text input when server provides no allowedDirs
+                VStack(spacing: 0) {
+                    TextField("~/projects/my-app", text: $manualPath)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .font(.system(.body, design: .monospaced))
+                        .padding(.horizontal, Theme.paddingMd)
+                        .padding(.vertical, 14)
+                }
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                        .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
+                )
+                .shadow(color: Theme.cardShadow, radius: 4, y: 2)
+            } else {
+                VStack(spacing: 0) {
                 ForEach(Array(allowedDirs.enumerated()), id: \.element) { index, dir in
                     if index > 0 {
                         Divider().foregroundStyle(Theme.border)
@@ -94,6 +121,7 @@ struct NewSessionView: View {
                     .stroke(Theme.border.opacity(0.6), lineWidth: 0.5)
             )
             .shadow(color: Theme.cardShadow, radius: 4, y: 2)
+            }
         }
     }
 
@@ -150,7 +178,7 @@ struct NewSessionView: View {
     }
 
     private func createSession() {
-        guard let path = selectedPath else { return }
+        guard let path = resolvedPath else { return }
         viewModel.createSession(cwd: path, agent: selectedAgent)
         onDismiss()
     }

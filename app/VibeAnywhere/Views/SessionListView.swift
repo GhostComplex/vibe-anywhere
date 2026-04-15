@@ -149,7 +149,7 @@ struct SessionListView: View {
                 if !viewModel.hostSessions.isEmpty {
                     sectionHeader("RECENT")
 
-                    ForEach(groupedHostSessions, id: \.path) { group in
+                    ForEach(viewModel.groupedHostSessions, id: \.path) { group in
                         hostSessionGroup(path: group.path, sessions: group.sessions)
                             .padding(.horizontal, Theme.paddingMd)
                             .padding(.bottom, Theme.paddingSm)
@@ -285,20 +285,6 @@ struct SessionListView: View {
     }
 
     // MARK: - Grouped Host Sessions
-
-    private var groupedHostSessions: [(path: String, sessions: [HostSessionInfo])] {
-        let allowed = viewModel.wsService.allowedDirs
-        let filtered = viewModel.hostSessions.filter { session in
-            allowed.contains { session.cwd == $0 || session.cwd.hasPrefix($0 + "/") }
-        }
-        let grouped = Dictionary(grouping: filtered) { $0.cwd }
-        return grouped.map { (path: $0.key, sessions: $0.value) }
-            .sorted { a, b in
-                let aDate = a.sessions.compactMap(\.updatedAt).max() ?? ""
-                let bDate = b.sessions.compactMap(\.updatedAt).max() ?? ""
-                return aDate > bDate
-            }
-    }
 
     private func hostSessionGroup(path: String, sessions: [HostSessionInfo]) -> some View {
         let isExpanded = expandedPaths.contains(path)
