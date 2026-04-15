@@ -13,11 +13,10 @@ final class SessionViewModel {
     let wsService: WebSocketService
 
     /// Currently active chat view model (receives stream events)
-    var activeChatVM: ChatViewModel?
+    @ObservationIgnored var activeChatVM: ChatViewModel?
 
-    /// Cache of chat view models by session ID (LRU, max 10)
-    private var chatVMs: [String: ChatViewModel] = [:]
-    private var chatVMOrder: [String] = [] // oldest first
+    @ObservationIgnored private var chatVMs: [String: ChatViewModel] = [:]
+    @ObservationIgnored private var chatVMOrder: [String] = [] // oldest first
     private let maxCachedVMs = 10
 
     /// Callback when a session is created or tapped (navigate to chat)
@@ -122,6 +121,7 @@ final class SessionViewModel {
         switch msg {
         case .eventText, .eventUserText, .eventToolCall, .eventToolCallUpdate,
              .eventUsage, .eventTurnEnd, .eventReplayEnd, .eventError, .eventSessionInfo:
+            print("[SessionVM] forwarding \(String(describing: msg).prefix(60)) to chatVM")
             activeChatVM?.handleDaemonMessage(msg)
             return
         // permission requests also go to chat (for now — #47 will add modal)

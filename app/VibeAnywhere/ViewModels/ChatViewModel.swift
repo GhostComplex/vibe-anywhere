@@ -60,6 +60,11 @@ final class ChatViewModel {
     private(set) var hasError = false
     var isLoadingHistory = false
     private var replayBuffer: [ChatMessage] = []
+    /// Streaming text is kept separate from `messages` so that chunk
+    /// updates do NOT mutate the array and do NOT trigger a full
+    /// ForEach diff / view-tree rebuild.
+    private(set) var streamingText: String = ""
+    private(set) var streamingToolUses: [ToolUseInfo] = []
     private(set) var turnUsage: TurnUsage?
     private(set) var sessionAgent: String = "claude"
     private(set) var currentModel: String?
@@ -180,9 +185,11 @@ final class ChatViewModel {
 
         case .eventReplayEnd(let sid):
             guard sid == sessionId else { return }
-            messages = replayBuffer
-            replayBuffer = []
-            isLoadingHistory = false
+            if isLoadingHistory {
+                messages = replayBuffer
+                replayBuffer = []
+                isLoadingHistory = false
+            }
 
         case .eventPermissionRequest(let sid, let requestId, let tool, let options):
             guard sid == sessionId else { return }
@@ -224,30 +231,20 @@ final class ChatViewModel {
     // MARK: - Private
 
     private func appendToStreaming(_ text: String) {
-        guard let lastIndex = messages.indices.last,
-              messages[lastIndex].role == .assistant,
-              messages[lastIndex].isStreaming else { return }
-
-        messages[lastIndex].text += text
+        print("[ChatVM] appendToStreaming len=\(text.count) total=\(streamingText.count)")
+        streamingText += text
     }
 
     private func appendToolCallV2(toolCallId: String, tool: String, status: String) {
-        guard let lastIndex = messages.indices.last,
-              messages[lastIndex].role == .assistant,
-              messages[lastIndex].isStreaming else { return }
-
-        messages[lastIndex].toolUses.append(
+        streamingToolUses.append(
             ToolUseInfo(id: toolCallId, tool: tool, status: status)
         )
     }
 
     private func updateToolCall(toolCallId: String, status: String?) {
-        guard let lastIndex = messages.indices.last,
-              messages[lastIndex].role == .assistant else { return }
-
-        if let toolIndex = messages[lastIndex].toolUses.firstIndex(where: { $0.id == toolCallId }),
+        if let toolIndex = streamingToolUses.firstIndex(where: { $0.id == toolCallId }),
            let status {
-            messages[lastIndex].toolUses[toolIndex].status = status
+            streamingToolUses[toolIndex].status = status
         }
     }
 
@@ -255,19 +252,25 @@ final class ChatViewModel {
         guard let lastIndex = messages.indices.last,
               messages[lastIndex].role == .assistant else { return }
 
+        messages[lastIndex].text = streamingText
+        messages[lastIndex].toolUses = streamingToolUses
         messages[lastIndex].isStreaming = false
+        streamingText = ""
+        streamingToolUses = []
         isWaiting = false
     }
 
     private func appendError(_ message: String) {
-        // Don't stack duplicate errors
         if hasError { return }
 
-        // Finalize any streaming message, then add error
         if let lastIndex = messages.indices.last,
            messages[lastIndex].role == .assistant,
            messages[lastIndex].isStreaming {
+            messages[lastIndex].text = streamingText
+            messages[lastIndex].toolUses = streamingToolUses
             messages[lastIndex].isStreaming = false
+            streamingText = ""
+            streamingToolUses = []
         }
         messages.append(ChatMessage(role: .assistant, text: message, isError: true))
         hasError = true

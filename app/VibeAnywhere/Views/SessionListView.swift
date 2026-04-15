@@ -7,6 +7,7 @@ struct SessionListView: View {
     @State private var showDeleteAll = false
 
     var body: some View {
+        let _ = print("[SessionListView] body evaluated")
         ZStack {
             Theme.background.ignoresSafeArea()
 

@@ -342,8 +342,8 @@ export class SessionManager {
         send(ws, { type: 'event/text', sessionId, content: event.content, ...(event.replay && { replay: true }) });
         break;
       case 'user_text':
-        // Capture first user message as session title
-        if (!event.replay && !session.info.title) {
+        // Capture first user message as session title (including during replay)
+        if (!session.info.title) {
           session.info.title = event.content.slice(0, 100);
         }
         send(ws, { type: 'event/user_text', sessionId, content: event.content, ...(event.replay && { replay: true }) });
