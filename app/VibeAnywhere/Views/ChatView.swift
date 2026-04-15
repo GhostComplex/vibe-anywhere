@@ -82,7 +82,7 @@ struct ChatView: View {
                 LazyVStack(spacing: 12) {
                     ForEach(viewModel.messages.items) { message in
                         if message.isStreaming {
-                            StreamingBubble(viewModel: viewModel)
+                            StreamingBubble(streaming: viewModel.streaming)
                                 .id(message.id)
                         } else {
                             MessageBubble(message: message)
