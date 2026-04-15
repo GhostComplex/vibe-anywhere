@@ -1,11 +1,12 @@
 import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { AcpManager, type AcpManagerConfig, type AcpManagerEvent } from '../acp-manager.js';
+import { AcpProvider, type AcpProviderConfig } from '../providers/acp-provider.js';
+import type { AgentStreamEvent } from '../providers/types.js';
 
 // ── Mock helpers ──
 
-function makeConfig(overrides: Partial<AcpManagerConfig> = {}): AcpManagerConfig {
+function makeConfig(overrides: Partial<AcpProviderConfig> = {}): AcpProviderConfig {
   return {
     acpxPath: 'npx',
     permissionMode: 'prompt',
@@ -14,41 +15,45 @@ function makeConfig(overrides: Partial<AcpManagerConfig> = {}): AcpManagerConfig
   };
 }
 
-describe('AcpManager', () => {
-  let manager: AcpManager;
+describe('AcpProvider', () => {
+  let provider: AcpProvider;
 
   beforeEach(() => {
-    manager = new AcpManager(makeConfig());
+    provider = new AcpProvider(makeConfig());
   });
 
   afterEach(async () => {
-    await manager.shutdown();
+    await provider.shutdown();
   });
 
   describe('construction', () => {
     it('creates with default config', () => {
-      assert.ok(manager instanceof EventEmitter);
+      assert.ok(provider instanceof EventEmitter);
+    });
+
+    it('exposes provider name', () => {
+      assert.equal(provider.provider, 'acp');
     });
 
     it('reports no agents running initially', () => {
-      assert.ok(!manager.isAgentRunning('claude'));
+      assert.ok(!provider.isAgentRunning('claude'));
     });
 
     it('returns null for unknown session agent', () => {
-      assert.equal(manager.getSessionAgent('nonexistent'), null);
+      assert.equal(provider.getSessionAgent('nonexistent'), null);
     });
   });
 
   describe('respondPermission', () => {
     it('returns false for unknown requestId', () => {
-      assert.equal(manager.respondPermission('unknown-id', 'option-1'), false);
+      assert.equal(provider.respondPermission('unknown-id', 'option-1'), false);
     });
   });
 
   describe('prompt without agent', () => {
     it('throws when agent not running', async () => {
       await assert.rejects(
-        () => manager.prompt('claude', 'session-1', 'hello'),
+        () => provider.prompt('claude', 'session-1', 'hello'),
         { message: /Agent "claude" not running/ },
       );
     });
@@ -57,14 +62,14 @@ describe('AcpManager', () => {
   describe('cancel without agent', () => {
     it('does not throw when agent not running', async () => {
       // cancel is fire-and-forget, should not throw
-      await manager.cancel('claude', 'session-1');
+      await provider.cancel('claude', 'session-1');
     });
   });
 
   describe('setMode without agent', () => {
     it('throws when agent not running', async () => {
       await assert.rejects(
-        () => manager.setMode('claude', 'session-1', 'plan'),
+        () => provider.setMode('claude', 'session-1', 'plan'),
         { message: /Agent "claude" not running/ },
       );
     });
@@ -73,7 +78,7 @@ describe('AcpManager', () => {
   describe('setModel without agent', () => {
     it('throws when agent not running', async () => {
       await assert.rejects(
-        () => manager.setModel('claude', 'session-1', 'opus'),
+        () => provider.setModel('claude', 'session-1', 'opus'),
         { message: /Agent "claude" not running/ },
       );
     });
@@ -81,31 +86,31 @@ describe('AcpManager', () => {
 
   describe('shutdown', () => {
     it('completes cleanly with no agents', async () => {
-      await manager.shutdown();
+      await provider.shutdown();
       // Should not throw
       assert.ok(true);
     });
 
     it('can be called multiple times', async () => {
-      await manager.shutdown();
-      await manager.shutdown();
+      await provider.shutdown();
+      await provider.shutdown();
       assert.ok(true);
     });
   });
 
   describe('event emission', () => {
     it('is an EventEmitter', () => {
-      const events: AcpManagerEvent[] = [];
-      manager.on('event', (e: AcpManagerEvent) => events.push(e));
+      const events: AgentStreamEvent[] = [];
+      provider.on('event', (e: AgentStreamEvent) => events.push(e));
       // Manually emit to verify wiring
-      manager.emit('event', { type: 'error', sessionId: null, message: 'test' } satisfies AcpManagerEvent);
+      provider.emit('event', { type: 'error', sessionId: null, message: 'test' } satisfies AgentStreamEvent);
       assert.equal(events.length, 1);
       assert.equal(events[0].type, 'error');
     });
   });
 });
 
-describe('AcpManager auto-permission modes', () => {
+describe('AcpProvider auto-permission modes', () => {
   it('approve-all config is stored', () => {
     const config = makeConfig({ permissionMode: 'approve-all' });
     assert.equal(config.permissionMode, 'approve-all');

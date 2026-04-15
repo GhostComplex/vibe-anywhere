@@ -1,6 +1,7 @@
 import { loadConfig, rotateToken } from './config.js';
 import { startServer, type Server } from './server.js';
 import { SessionManager } from './sessions.js';
+import { ProviderRegistry, AcpProvider } from './providers/index.js';
 
 const VERSION = '0.2.0';
 
@@ -45,7 +46,17 @@ function main(): void {
   console.log(`  ACP path: ${config.acpx.path}`);
   console.log(`  Permission mode: ${config.acpx.permissionMode}`);
 
-  const sessions = new SessionManager(config);
+  // Build provider registry
+  const registry = new ProviderRegistry();
+  const acpProvider = new AcpProvider({
+    acpxPath: config.acpx.path,
+    claudePath: config.claudePath,
+    permissionMode: config.acpx.permissionMode,
+    timeout: config.acpx.timeout,
+  });
+  registry.register(config.defaultAgent, acpProvider);
+
+  const sessions = new SessionManager(config, registry);
 
   const server = startServer({
     config,
