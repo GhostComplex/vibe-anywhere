@@ -59,6 +59,7 @@ final class ChatViewModel {
     private(set) var isWaiting = false
     private(set) var hasError = false
     var isLoadingHistory = false
+    private var replayBuffer: [ChatMessage] = []
     private(set) var turnUsage: TurnUsage?
     private(set) var sessionAgent: String = "claude"
     private(set) var currentModel: String?
@@ -179,6 +180,8 @@ final class ChatViewModel {
 
         case .eventReplayEnd(let sid):
             guard sid == sessionId else { return }
+            messages = replayBuffer
+            replayBuffer = []
             isLoadingHistory = false
 
         case .eventPermissionRequest(let sid, let requestId, let tool, let options):
@@ -274,46 +277,38 @@ final class ChatViewModel {
     // MARK: - Replay (history) helpers
 
     private func appendReplayUserMessage(_ text: String) {
-        // Each user_message_chunk during replay may be a new user message
-        // or a continuation of the current one. ACP sends all chunks for a single
-        // message before moving to the next, so append to the last user message
-        // if it exists and is the most recent message.
-        if let lastIndex = messages.indices.last,
-           messages[lastIndex].role == .user {
-            messages[lastIndex].text += text
+        if let lastIndex = replayBuffer.indices.last,
+           replayBuffer[lastIndex].role == .user {
+            replayBuffer[lastIndex].text += text
         } else {
-            messages.append(ChatMessage(role: .user, text: text))
+            replayBuffer.append(ChatMessage(role: .user, text: text))
         }
     }
 
     private func appendReplayAssistantText(_ text: String) {
-        // Append to the last assistant message if it's the most recent,
-        // otherwise start a new one. All replay messages are finalized (non-streaming).
-        if let lastIndex = messages.indices.last,
-           messages[lastIndex].role == .assistant {
-            messages[lastIndex].text += text
+        if let lastIndex = replayBuffer.indices.last,
+           replayBuffer[lastIndex].role == .assistant {
+            replayBuffer[lastIndex].text += text
         } else {
-            messages.append(ChatMessage(role: .assistant, text: text))
+            replayBuffer.append(ChatMessage(role: .assistant, text: text))
         }
     }
 
     private func appendReplayToolCall(toolCallId: String, tool: String, status: String) {
-        // Ensure there's an assistant message to attach the tool call to
-        if messages.isEmpty || messages.last?.role != .assistant {
-            messages.append(ChatMessage(role: .assistant, text: ""))
+        if replayBuffer.isEmpty || replayBuffer.last?.role != .assistant {
+            replayBuffer.append(ChatMessage(role: .assistant, text: ""))
         }
-        let lastIndex = messages.indices.last!
-        messages[lastIndex].toolUses.append(
+        let lastIndex = replayBuffer.indices.last!
+        replayBuffer[lastIndex].toolUses.append(
             ToolUseInfo(id: toolCallId, tool: tool, status: status)
         )
     }
 
     private func updateReplayToolCall(toolCallId: String, status: String?) {
-        // Find the tool call across all messages (replay order may differ)
-        for i in messages.indices.reversed() {
-            if let toolIndex = messages[i].toolUses.firstIndex(where: { $0.id == toolCallId }),
+        for i in replayBuffer.indices.reversed() {
+            if let toolIndex = replayBuffer[i].toolUses.firstIndex(where: { $0.id == toolCallId }),
                let status {
-                messages[i].toolUses[toolIndex].status = status
+                replayBuffer[i].toolUses[toolIndex].status = status
                 return
             }
         }

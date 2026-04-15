@@ -197,11 +197,13 @@ struct SessionListView: View {
                     .foregroundStyle(Theme.textTertiary)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(directoryName(session.cwd))
+                    Text(session.displayTitle)
                         .font(.headline)
                         .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
-                    Text(displayPath(session.cwd))
+                    Text(session.cwd)
                         .font(.caption.monospaced())
                         .foregroundStyle(Theme.textTertiary)
                         .lineLimit(1)

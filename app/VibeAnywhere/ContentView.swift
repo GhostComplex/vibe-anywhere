@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var connectingElapsed: Int = 0
     @State private var connectingTimer: Timer?
     @State private var selectedSessionId: String?
+    @State private var cachedConfig: ConnectionConfig = KeychainService.loadConfig()
 
     var body: some View {
         NavigationStack {
@@ -74,9 +75,9 @@ struct ContentView: View {
     }
 
     private func autoConnect() {
-        let config = KeychainService.loadConfig()
-        if config.isValid {
-            wsService.connect(config: config)
+        cachedConfig = KeychainService.loadConfig()
+        if cachedConfig.isValid {
+            wsService.connect(config: cachedConfig)
         }
     }
 
@@ -214,7 +215,7 @@ struct ContentView: View {
     }
 
     private var config: ConnectionConfig {
-        KeychainService.loadConfig()
+        cachedConfig
     }
 
     // MARK: - Disconnected

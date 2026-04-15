@@ -72,6 +72,11 @@ final class SessionViewModel {
     }
 
     func resumeSession(_ sessionId: String) {
+        let chatVM = chatViewModel(for: sessionId)
+        // Only expect replay if the chatVM has no messages (fresh or evicted from cache)
+        if chatVM.messages.isEmpty {
+            chatVM.isLoadingHistory = true
+        }
         wsService.send(.sessionResume(sessionId: sessionId))
         onSelectSession?(sessionId)
     }

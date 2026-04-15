@@ -4,31 +4,66 @@ import SwiftUI
 struct MarkdownContentView: View {
     let text: String
 
-    /// Messages longer than this threshold get a "Show more" collapse.
-    private static let collapseThreshold = 800
+    /// Messages with more than this many lines get a "Show more" collapse.
+    private static let collapseLineLimit = 5
+    private static let collapseCharLimit = 300
     @State private var isExpanded = false
+    @State private var cachedSegments: [Segment] = []
+    @State private var cachedDisplayText: String = ""
 
     private var shouldCollapse: Bool {
-        text.count > Self.collapseThreshold
+        text.count > Self.collapseCharLimit
+            || text.components(separatedBy: "\n").count > Self.collapseLineLimit
     }
 
     private var displayText: String {
         if shouldCollapse && !isExpanded {
-            return String(text.prefix(Self.collapseThreshold))
+            let byLines = text.components(separatedBy: "\n")
+                .prefix(Self.collapseLineLimit)
+                .joined(separator: "\n")
+            return String(byLines.prefix(Self.collapseCharLimit))
         }
         return text
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
-                segmentView(segment)
-            }
+        let collapsed = shouldCollapse
 
-            if shouldCollapse {
+        VStack(alignment: .leading, spacing: 10) {
+            if collapsed {
                 collapseToggle
             }
+
+            ForEach(Array(cachedSegments.enumerated()), id: \.offset) { _, segment in
+                segmentView(segment)
+            }
         }
+        .mask {
+            if collapsed && !isExpanded {
+                VStack(spacing: 0) {
+                    Color.black
+                    LinearGradient(
+                        colors: [.black, .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 32)
+                }
+            } else {
+                Color.black
+            }
+        }
+        .clipped()
+        .onAppear { updateSegments() }
+        .onChange(of: text) { _, _ in updateSegments() }
+        .onChange(of: isExpanded) { _, _ in updateSegments() }
+    }
+
+    private func updateSegments() {
+        let dt = displayText
+        guard dt != cachedDisplayText else { return }
+        cachedDisplayText = dt
+        cachedSegments = parseSegments(dt)
     }
 
     // MARK: - Collapse Toggle
@@ -40,10 +75,10 @@ struct MarkdownContentView: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(isExpanded ? "Show less" : "Show more")
-                    .font(.caption.bold())
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                     .font(.caption2)
+                Text(isExpanded ? "Collapse" : "Expand")
+                    .font(.caption.bold())
             }
             .foregroundStyle(Theme.textSecondary)
         }
@@ -60,10 +95,6 @@ struct MarkdownContentView: View {
     }
 
     // MARK: - Parsing
-
-    private var segments: [Segment] {
-        parseSegments(displayText)
-    }
 
     private func parseSegments(_ input: String) -> [Segment] {
         var result: [Segment] = []
@@ -158,13 +189,7 @@ struct MarkdownContentView: View {
     }
 
     private func inlineMarkdownView(_ content: String) -> some View {
-        let attributed = (try? AttributedString(markdown: content, options: .init(
-            interpretedSyntax: .inlineOnlyPreservingWhitespace
-        ))) ?? AttributedString(content)
-
-        return Text(attributed)
-            .textSelection(.enabled)
-            .foregroundStyle(Theme.textPrimary)
+        CachedMarkdownText(content: content)
     }
 
     // MARK: - Code Block
@@ -211,11 +236,33 @@ struct MarkdownContentView: View {
     }
 }
 
+// MARK: - Cached Markdown Text
+
+private struct CachedMarkdownText: View {
+    let content: String
+    @State private var attributed: AttributedString?
+
+    var body: some View {
+        Text(attributed ?? AttributedString(content))
+            .textSelection(.enabled)
+            .foregroundStyle(Theme.textPrimary)
+            .onAppear { parse() }
+            .onChange(of: content) { _, _ in parse() }
+    }
+
+    private func parse() {
+        attributed = (try? AttributedString(markdown: content, options: .init(
+            interpretedSyntax: .inlineOnlyPreservingWhitespace
+        ))) ?? AttributedString(content)
+    }
+}
+
 // MARK: - Syntax Highlighting
 
 private struct SyntaxHighlightedText: View {
     let code: String
     let language: String
+    @State private var cached: AttributedString?
 
     private static let kwColor = Color(hex: 0xCF222E)
     private static let strColor = Color(hex: 0x0A3069)
@@ -223,74 +270,78 @@ private struct SyntaxHighlightedText: View {
     private static let typeColor = Color(hex: 0x8250DF)
     private static let numColor = Color(hex: 0x0550AE)
 
+    // Pre-built keyword/type sets (static, allocated once)
+    private static let kwSets: [String: Set<String>] = [
+        "swift": ["import", "func", "var", "let", "class", "struct", "enum", "protocol",
+                  "if", "else", "guard", "return", "switch", "case", "default", "for",
+                  "in", "while", "repeat", "break", "continue", "throw", "throws",
+                  "try", "catch", "async", "await", "some", "any", "private", "public",
+                  "internal", "fileprivate", "open", "static", "self", "Self", "nil",
+                  "true", "false", "init", "deinit", "extension", "where", "typealias",
+                  "mutating", "override", "final", "weak", "lazy", "super", "defer",
+                  "do", "inout", "is", "as"],
+        "javascript": ["const", "let", "var", "function", "return", "if", "else", "for",
+                       "while", "do", "switch", "case", "default", "break", "continue",
+                       "throw", "try", "catch", "finally", "new", "typeof", "instanceof",
+                       "this", "class", "extends", "super", "import", "export", "from",
+                       "async", "await", "of", "in", "true", "false", "null", "undefined",
+                       "type", "interface", "enum", "readonly", "private", "public",
+                       "protected", "static", "abstract", "declare"],
+        "python": ["def", "class", "return", "if", "elif", "else", "for", "while",
+                   "break", "continue", "pass", "raise", "try", "except", "finally",
+                   "with", "as", "import", "from", "yield", "lambda", "and", "or",
+                   "not", "is", "in", "True", "False", "None", "self", "async", "await",
+                   "global", "nonlocal", "del", "assert"],
+    ]
+    private static let defaultKw: Set<String> = [
+        "if", "else", "for", "while", "return", "function", "class",
+        "var", "let", "const", "import", "export", "true", "false", "null",
+        "nil", "void", "new", "this", "self", "switch", "case", "default",
+        "break", "continue", "try", "catch", "throw"
+    ]
+    private static let typeSets: [String: Set<String>] = [
+        "swift": ["String", "Int", "Double", "Float", "Bool", "Array", "Dictionary",
+                  "Set", "Optional", "Result", "Error", "URL", "Data", "Date", "UUID",
+                  "View", "Color", "Text", "Image", "Button", "VStack", "HStack",
+                  "ZStack", "List", "ForEach", "NavigationStack", "ScrollView",
+                  "Any", "AnyObject", "Void", "Never", "Codable", "Hashable",
+                  "Equatable", "Identifiable", "CGFloat"],
+        "typescript": ["string", "number", "boolean", "object", "any", "unknown", "never",
+                       "void", "undefined", "Array", "Map", "Set", "Promise", "Record",
+                       "Partial", "Required", "Readonly"],
+    ]
+
     var body: some View {
-        Text(highlighted)
+        Text(cached ?? AttributedString(code))
             .font(.system(.caption, design: .monospaced))
             .textSelection(.enabled)
+            .onAppear { highlight() }
+            .onChange(of: code) { _, _ in highlight() }
     }
 
-    private var highlighted: AttributedString {
+    private func highlight() {
+        let lang = language.lowercased()
+        let langKey: String
+        switch lang {
+        case "swift": langKey = "swift"
+        case "javascript", "js", "jsx": langKey = "javascript"
+        case "typescript", "ts", "tsx": langKey = "javascript"
+        case "python", "py": langKey = "python"
+        default: langKey = ""
+        }
+        let keywords = Self.kwSets[langKey] ?? Self.defaultKw
+        let typeSet = Self.typeSets[langKey] ?? []
+
         var result = AttributedString()
         let lines = code.components(separatedBy: "\n")
         for (idx, line) in lines.enumerated() {
             if idx > 0 { result.append(AttributedString("\n")) }
-            result.append(highlightLine(line))
+            result.append(highlightLine(line, kw: keywords, types: typeSet))
         }
-        return result
+        cached = result
     }
 
-    private var kw: Set<String> {
-        switch language.lowercased() {
-        case "swift":
-            return ["import", "func", "var", "let", "class", "struct", "enum", "protocol",
-                    "if", "else", "guard", "return", "switch", "case", "default", "for",
-                    "in", "while", "repeat", "break", "continue", "throw", "throws",
-                    "try", "catch", "async", "await", "some", "any", "private", "public",
-                    "internal", "fileprivate", "open", "static", "self", "Self", "nil",
-                    "true", "false", "init", "deinit", "extension", "where", "typealias",
-                    "mutating", "override", "final", "weak", "lazy", "super", "defer",
-                    "do", "inout", "is", "as"]
-        case "javascript", "js", "typescript", "ts", "jsx", "tsx":
-            return ["const", "let", "var", "function", "return", "if", "else", "for",
-                    "while", "do", "switch", "case", "default", "break", "continue",
-                    "throw", "try", "catch", "finally", "new", "typeof", "instanceof",
-                    "this", "class", "extends", "super", "import", "export", "from",
-                    "async", "await", "of", "in", "true", "false", "null", "undefined",
-                    "type", "interface", "enum", "readonly", "private", "public",
-                    "protected", "static", "abstract", "declare"]
-        case "python", "py":
-            return ["def", "class", "return", "if", "elif", "else", "for", "while",
-                    "break", "continue", "pass", "raise", "try", "except", "finally",
-                    "with", "as", "import", "from", "yield", "lambda", "and", "or",
-                    "not", "is", "in", "True", "False", "None", "self", "async", "await",
-                    "global", "nonlocal", "del", "assert"]
-        default:
-            return ["if", "else", "for", "while", "return", "function", "class",
-                    "var", "let", "const", "import", "export", "true", "false", "null",
-                    "nil", "void", "new", "this", "self", "switch", "case", "default",
-                    "break", "continue", "try", "catch", "throw"]
-        }
-    }
-
-    private var types: Set<String> {
-        switch language.lowercased() {
-        case "swift":
-            return ["String", "Int", "Double", "Float", "Bool", "Array", "Dictionary",
-                    "Set", "Optional", "Result", "Error", "URL", "Data", "Date", "UUID",
-                    "View", "Color", "Text", "Image", "Button", "VStack", "HStack",
-                    "ZStack", "List", "ForEach", "NavigationStack", "ScrollView",
-                    "Any", "AnyObject", "Void", "Never", "Codable", "Hashable",
-                    "Equatable", "Identifiable", "CGFloat"]
-        case "typescript", "ts", "tsx":
-            return ["string", "number", "boolean", "object", "any", "unknown", "never",
-                    "void", "undefined", "Array", "Map", "Set", "Promise", "Record",
-                    "Partial", "Required", "Readonly"]
-        default:
-            return []
-        }
-    }
-
-    private func highlightLine(_ line: String) -> AttributedString {
+    private func highlightLine(_ line: String, kw: Set<String>, types: Set<String>) -> AttributedString {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         if trimmed.hasPrefix("//") || trimmed.hasPrefix("#") {
             var a = AttributedString(line)

@@ -2,6 +2,10 @@ import SwiftUI
 
 struct MessageBubble: View {
     let message: ChatMessage
+    @State private var isUserTextExpanded = false
+
+    private static let collapseLineLimit = 5
+    private static let collapseCharLimit = 300
 
     var body: some View {
         HStack {
@@ -35,28 +39,74 @@ struct MessageBubble: View {
         if message.isError {
             errorCard
         } else if message.role == .user {
-            Text(message.text)
-                .textSelection(.enabled)
-                .foregroundStyle(Theme.textPrimary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(.thinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [.white.opacity(0.6), Theme.border.opacity(0.3)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.5
-                        )
-                )
-                .shadow(color: Theme.cardShadow, radius: 4, y: 2)
+            userCard
         } else {
             assistantCard
         }
+    }
+
+    private var userCard: some View {
+        let lines = message.text.components(separatedBy: "\n")
+        let shouldCollapse = lines.count > Self.collapseLineLimit
+            || message.text.count > Self.collapseCharLimit
+        let truncated = shouldCollapse && !isUserTextExpanded
+        let displayText = truncated
+            ? String(lines.prefix(Self.collapseLineLimit).joined(separator: "\n").prefix(Self.collapseCharLimit))
+            : message.text
+
+        return VStack(alignment: .trailing, spacing: 6) {
+            if shouldCollapse {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        isUserTextExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: isUserTextExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption2)
+                        Text(isUserTextExpanded ? "Collapse" : "Expand")
+                            .font(.caption.bold())
+                    }
+                    .foregroundStyle(Theme.textSecondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Text(displayText)
+                .textSelection(.enabled)
+                .foregroundStyle(Theme.textPrimary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.thinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [.white.opacity(0.6), Theme.border.opacity(0.3)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.5
+                )
+        )
+        .mask {
+            if truncated {
+                VStack(spacing: 0) {
+                    Color.black
+                    LinearGradient(
+                        colors: [.black, .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 32)
+                }
+            } else {
+                Color.black
+            }
+        }
+        .shadow(color: Theme.cardShadow, radius: 4, y: 2)
     }
 
     private var errorCard: some View {
@@ -83,23 +133,32 @@ struct MessageBubble: View {
     }
 
     private var assistantCard: some View {
-        MarkdownContentView(text: message.text)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [.white.opacity(0.7), Theme.border.opacity(0.3)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.5
-                    )
-            )
-            .shadow(color: Theme.cardShadow, radius: 4, y: 2)
+        Group {
+            if message.isStreaming {
+                // Plain text during streaming — avoids expensive markdown parsing per chunk
+                Text(message.text)
+                    .textSelection(.enabled)
+                    .foregroundStyle(Theme.textPrimary)
+            } else {
+                MarkdownContentView(text: message.text)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [.white.opacity(0.7), Theme.border.opacity(0.3)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.5
+                )
+        )
+        .shadow(color: Theme.cardShadow, radius: 4, y: 2)
     }
 
     // MARK: - Tool Card
@@ -124,8 +183,11 @@ struct MessageBubble: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.ultraThinMaterial)
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(Theme.border.opacity(0.5), lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusMd, style: .continuous)
+                .stroke(Theme.border.opacity(0.5), lineWidth: 0.5)
+        )
         .shadow(color: Theme.cardShadow, radius: 2, y: 1)
     }
 
@@ -143,8 +205,7 @@ struct MessageBubble: View {
 
 private struct StreamingDots: View {
     @State private var phase = 0
-
-    private let timer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
+    @State private var timer: Timer?
 
     var body: some View {
         HStack(spacing: 5) {
@@ -158,8 +219,14 @@ private struct StreamingDots: View {
         }
         .padding(.vertical, 6)
         .animation(.easeInOut(duration: 0.3), value: phase)
-        .onReceive(timer) { _ in
-            phase = (phase + 1) % 3
+        .onAppear {
+            timer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
+                Task { @MainActor in phase = (phase + 1) % 3 }
+            }
+        }
+        .onDisappear {
+            timer?.invalidate()
+            timer = nil
         }
     }
 }

@@ -12,14 +12,28 @@ struct ChatView: View {
             Theme.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                if viewModel.messages.isEmpty && !viewModel.isWaiting {
-                    EmptyStateView { chip in
-                        inputText = chip
-                        send()
+                ZStack {
+                    if viewModel.messages.isEmpty && !viewModel.isWaiting && !viewModel.isLoadingHistory {
+                        EmptyStateView { chip in
+                            inputText = chip
+                            send()
+                        }
+                    } else {
+                        messageList
+                            .opacity(viewModel.isLoadingHistory ? 0 : 1)
                     }
-                } else {
-                    messageList
+
+                    if viewModel.isLoadingHistory {
+                        VStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Loading history…")
+                                .font(.caption)
+                                .foregroundStyle(Theme.textTertiary)
+                        }
+                    }
                 }
+                .animation(.easeOut(duration: 0.3), value: viewModel.isLoadingHistory)
 
                 usageBar
 
@@ -73,8 +87,16 @@ struct ChatView: View {
                 }
                 .padding()
             }
-            .onChange(of: viewModel.messages.count) { _, _ in debouncedScroll(proxy) }
-            .onChange(of: viewModel.messages.last?.text) { _, _ in debouncedScroll(proxy) }
+            .onChange(of: viewModel.messages.count) { _, _ in
+                if !viewModel.isLoadingHistory { debouncedScroll(proxy) }
+            }
+            .onChange(of: viewModel.isWaiting) { old, new in
+                // Scroll when streaming ends (isWaiting true→false)
+                if old && !new { debouncedScroll(proxy) }
+            }
+            .onChange(of: viewModel.isLoadingHistory) { old, new in
+                if old && !new { delayedScroll(proxy) }
+            }
         }
     }
 
@@ -148,6 +170,15 @@ struct ChatView: View {
         scrollTask?.cancel()
         scrollTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(16))
+            guard !Task.isCancelled else { return }
+            scrollToBottom(proxy)
+        }
+    }
+
+    private func delayedScroll(_ proxy: ScrollViewProxy) {
+        scrollTask?.cancel()
+        scrollTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
             scrollToBottom(proxy)
         }
