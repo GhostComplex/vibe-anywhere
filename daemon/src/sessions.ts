@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { WebSocket } from 'ws';
-import { AcpManager, type AcpManagerEvent } from './acp-manager.js';
+import type { AgentStreamEvent } from './providers/types.js';
+import { type ProviderRegistry } from './providers/registry.js';
 import { send, sendError } from './server.js';
 import { type Config, expandTilde } from './config.js';
 import type { ClientMessage } from './types.js';
@@ -25,21 +26,25 @@ export class SessionManager {
   private sessions = new Map<string, Session>();
   private readonly config: Config;
   private readonly reconnectWindowMs: number;
-  private readonly acpManager: AcpManager;
+  private readonly registry: ProviderRegistry;
 
-  constructor(config: Config, reconnectWindowSeconds = 300) {
+  constructor(config: Config, registry: ProviderRegistry, reconnectWindowSeconds = 300) {
     this.config = config;
     this.reconnectWindowMs = reconnectWindowSeconds * 1000;
+    this.registry = registry;
 
-    this.acpManager = new AcpManager({
-      acpxPath: config.acpx.path,
-      claudePath: config.claudePath,
-      permissionMode: config.acpx.permissionMode,
-      timeout: config.acpx.timeout,
-    });
+    // Wire event listeners for all currently registered providers
+    for (const [, client] of registry.all()) {
+      client.on('event', (event: AgentStreamEvent) => {
+        this.relayEvent(event);
+      });
+    }
 
-    this.acpManager.on('event', (event: AcpManagerEvent) => {
-      this.relayEvent(event);
+    // Auto-wire event listeners for providers registered later
+    registry.onRegister((_name, client) => {
+      client.on('event', (event: AgentStreamEvent) => {
+        this.relayEvent(event);
+      });
     });
   }
 
@@ -106,7 +111,7 @@ export class SessionManager {
     for (const sessionId of [...this.sessions.keys()]) {
       this.destroySessionById(sessionId);
     }
-    void this.acpManager.shutdown();
+    void this.registry.shutdownAll();
   }
 
   // ── Session operations ──
@@ -119,7 +124,7 @@ export class SessionManager {
     }
 
     try {
-      const result = await this.acpManager.createSession(agent, resolved);
+      const result = await this.registry.getOrThrow(agent).createSession(agent, resolved);
 
       const session: Session = {
         info: {
@@ -152,7 +157,7 @@ export class SessionManager {
     session.info.lastMessageAt = Date.now();
 
     try {
-      await this.acpManager.prompt(session.info.agent, sessionId, content);
+      await this.registry.getOrThrow(session.info.agent).prompt(session.info.agent, sessionId, content);
     } catch (err) {
       sendError(ws, `Failed to send message: ${(err as Error).message}`);
     }
@@ -164,7 +169,7 @@ export class SessionManager {
       sendError(ws, `Session not found: ${sessionId}`);
       return;
     }
-    await this.acpManager.cancel(session.info.agent, sessionId);
+    await this.registry.getOrThrow(session.info.agent).cancel(session.info.agent, sessionId);
   }
 
   private async setMode(ws: WebSocket, sessionId: string, mode: string): Promise<void> {
@@ -175,7 +180,7 @@ export class SessionManager {
     }
 
     try {
-      await this.acpManager.setMode(session.info.agent, sessionId, mode);
+      await this.registry.getOrThrow(session.info.agent).setMode(session.info.agent, sessionId, mode);
     } catch (err) {
       sendError(ws, `Failed to set mode: ${(err as Error).message}`);
     }
@@ -189,17 +194,18 @@ export class SessionManager {
     }
 
     try {
-      await this.acpManager.setModel(session.info.agent, sessionId, model);
+      await this.registry.getOrThrow(session.info.agent).setModel(session.info.agent, sessionId, model);
     } catch (err) {
       sendError(ws, `Failed to set model: ${(err as Error).message}`);
     }
   }
 
   private respondPermission(_ws: WebSocket, requestId: string, optionId: string): void {
-    const success = this.acpManager.respondPermission(requestId, optionId);
-    if (!success) {
-      sendError(_ws, `Permission request not found or expired: ${requestId}`);
+    // Try all providers — we don't know which one holds this permission request
+    for (const [, client] of this.registry.all()) {
+      if (client.respondPermission(requestId, optionId)) return;
     }
+    sendError(_ws, `Permission request not found or expired: ${requestId}`);
   }
 
   private listSessions(ws: WebSocket): void {
@@ -230,7 +236,7 @@ export class SessionManager {
 
     if (needsReplay) {
       try {
-        await this.acpManager.resumeHostSession(session.info.agent, sessionId, session.info.cwd);
+        await this.registry.getOrThrow(session.info.agent).resumeHostSession(session.info.agent, sessionId, session.info.cwd);
       } catch (err) {
         console.warn(`[session] Replay failed for ${sessionId}: ${(err as Error).message}`);
         send(ws, { type: 'event/replay_end', sessionId });
@@ -261,14 +267,14 @@ export class SessionManager {
       clearTimeout(session.reconnectTimer);
     }
 
-    void this.acpManager.closeSession(session.info.agent, sessionId);
+    void this.registry.getOrThrow(session.info.agent).closeSession(session.info.agent, sessionId);
     this.sessions.delete(sessionId);
     console.log(`[session] Destroyed ${sessionId}`);
   }
 
   private async listHostSessions(ws: WebSocket, agent: string): Promise<void> {
     try {
-      const result = await this.acpManager.listHostSessions(agent);
+      const result = await this.registry.getOrThrow(agent).listHostSessions(agent);
 
       // Filter out sessions already tracked by the daemon
       const activeIds = new Set(this.sessions.keys());
@@ -309,7 +315,7 @@ export class SessionManager {
     this.sessions.set(sessionId, session);
 
     try {
-      await this.acpManager.resumeHostSession(agent, sessionId, resolved);
+      await this.registry.getOrThrow(agent).resumeHostSession(agent, sessionId, resolved);
 
       console.log(`[session] Resumed host session ${sessionId} (agent: ${agent}) in ${resolved}`);
       send(ws, { type: 'session/created', sessionId, cwd: resolved });
@@ -322,7 +328,7 @@ export class SessionManager {
 
   // ── Event relay ──
 
-  private relayEvent(event: AcpManagerEvent): void {
+  private relayEvent(event: AgentStreamEvent): void {
     if (event.type === 'agent_exit') {
       console.log(`[session] Agent "${event.agent}" exited (code: ${event.code})`);
       return;

@@ -3,28 +3,15 @@ import crypto from 'node:crypto';
 import { Writable, Readable } from 'node:stream';
 import { EventEmitter } from 'node:events';
 import * as acp from '@agentclientprotocol/sdk';
-
-// ── Events emitted by AcpManager ──
-
-export type AcpManagerEvent =
-  | { type: 'text'; sessionId: string; content: string; replay?: boolean }
-  | { type: 'user_text'; sessionId: string; content: string; replay?: boolean }
-  | { type: 'tool_call'; sessionId: string; toolCallId: string; title: string; status: string; input?: Record<string, unknown>; replay?: boolean }
-  | { type: 'tool_call_update'; sessionId: string; toolCallId: string; status: string; content?: string; replay?: boolean }
-  | { type: 'permission_request'; sessionId: string; requestId: string; toolTitle: string; options: Array<{ optionId: string; name: string; kind: string }> }
-  | { type: 'usage'; sessionId: string; inputTokens: number; outputTokens: number }
-  | { type: 'turn_end'; sessionId: string; stopReason: string }
-  | { type: 'replay_end'; sessionId: string }
-  | { type: 'error'; sessionId: string | null; message: string }
-  | { type: 'agent_exit'; agent: string; code: number | null };
+import type { AgentClient, AgentStreamEvent } from './types.js';
 
 // ── Config ──
 
-export interface AcpManagerConfig {
-  acpxPath: string;         // path to acpx binary or 'npx'
-  claudePath?: string;      // path to Claude Code executable
+export interface AcpProviderConfig {
+  acpxPath: string;
+  claudePath?: string;
   permissionMode: 'prompt' | 'approve-all' | 'deny-all';
-  timeout: number;          // seconds per turn
+  timeout: number;
 }
 
 // ── Internal state per agent process ──
@@ -50,18 +37,20 @@ interface PendingPermission {
 }
 
 /**
- * AcpManager — manages acpx child processes via ACP SDK.
+ * AcpProvider — manages acpx child processes via ACP SDK.
  *
  * One acpx process per agent type. Each process can host multiple sessions.
  * Emits events for the WebSocket relay layer.
+ * Implements AgentClient interface for use with ProviderRegistry.
  */
-export class AcpManager extends EventEmitter {
+export class AcpProvider extends EventEmitter implements AgentClient {
+  readonly provider = 'acp';
   private agents = new Map<string, AgentProcess>();
   private pendingPermissions = new Map<string, PendingPermission>();
   private replayingSessions = new Set<string>();
-  private readonly config: AcpManagerConfig;
+  private readonly config: AcpProviderConfig;
 
-  constructor(config: AcpManagerConfig) {
+  constructor(config: AcpProviderConfig) {
     super();
     this.config = config;
   }
@@ -79,7 +68,7 @@ export class AcpManager extends EventEmitter {
   };
 
   private async spawnAgent(agent: string): Promise<AgentProcess> {
-    const acpPackage = AcpManager.ACP_AGENTS[agent];
+    const acpPackage = AcpProvider.ACP_AGENTS[agent];
     let cmd: string;
     let args: string[];
 
@@ -141,13 +130,13 @@ export class AcpManager extends EventEmitter {
     proc.on('close', (code) => {
       console.log(`[acp-mgr] Agent "${agent}" exited (code: ${code})`);
       this.agents.delete(agent);
-      this.emit('event', { type: 'agent_exit', agent, code } satisfies AcpManagerEvent);
+      this.emit('event', { type: 'agent_exit', agent, code } satisfies AgentStreamEvent);
     });
 
     proc.on('error', (err) => {
       console.error(`[acp-mgr] Agent "${agent}" error: ${err.message}`);
       this.agents.delete(agent);
-      this.emit('event', { type: 'error', sessionId: null, message: `Agent "${agent}" failed: ${err.message}` } satisfies AcpManagerEvent);
+      this.emit('event', { type: 'error', sessionId: null, message: `Agent "${agent}" failed: ${err.message}` } satisfies AgentStreamEvent);
     });
 
     // Initialize ACP connection
@@ -278,7 +267,7 @@ export class AcpManager extends EventEmitter {
     }
 
     // Signal that history replay is complete
-    this.emit('event', { type: 'replay_end', sessionId } satisfies AcpManagerEvent);
+    this.emit('event', { type: 'replay_end', sessionId } satisfies AgentStreamEvent);
 
     agentProc.sessions.add(sessionId);
     return { sessionId };
@@ -315,13 +304,13 @@ export class AcpManager extends EventEmitter {
         type: 'turn_end',
         sessionId,
         stopReason: result.stopReason ?? 'end_turn',
-      } satisfies AcpManagerEvent);
+      } satisfies AgentStreamEvent);
     } catch (err) {
       this.emit('event', {
         type: 'error',
         sessionId,
         message: `Prompt failed: ${(err as Error).message}`,
-      } satisfies AcpManagerEvent);
+      } satisfies AgentStreamEvent);
     }
   }
 
@@ -395,7 +384,7 @@ export class AcpManager extends EventEmitter {
       requestId,
       toolTitle: params.toolCall.title ?? 'Unknown tool',
       options,
-    } satisfies AcpManagerEvent);
+    } satisfies AgentStreamEvent);
 
     // Wait for iOS response with timeout
     return new Promise<acp.RequestPermissionResponse>((resolve) => {
@@ -446,7 +435,7 @@ export class AcpManager extends EventEmitter {
             sessionId,
             content: update.content.text,
             replay,
-          } satisfies AcpManagerEvent);
+          } satisfies AgentStreamEvent);
         }
         break;
       }
@@ -458,7 +447,7 @@ export class AcpManager extends EventEmitter {
             sessionId,
             content: update.content.text,
             replay,
-          } satisfies AcpManagerEvent);
+          } satisfies AgentStreamEvent);
         }
         break;
       }
@@ -471,7 +460,7 @@ export class AcpManager extends EventEmitter {
           title: update.title,
           status: update.status ?? 'running',
           replay,
-        } satisfies AcpManagerEvent);
+        } satisfies AgentStreamEvent);
         break;
       }
 
@@ -482,7 +471,7 @@ export class AcpManager extends EventEmitter {
           toolCallId: update.toolCallId,
           status: update.status ?? 'running',
           replay,
-        } satisfies AcpManagerEvent);
+        } satisfies AgentStreamEvent);
         break;
       }
 
