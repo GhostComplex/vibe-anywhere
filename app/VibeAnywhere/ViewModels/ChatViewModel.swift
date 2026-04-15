@@ -59,10 +59,9 @@ final class ChatViewModel {
     private(set) var isWaiting = false
     private(set) var hasError = false
 
-    /// Streaming state — kept on ChatViewModel for now,
-    /// will be extracted to StreamingState in #125.
-    private(set) var streamingText: String = ""
-    private(set) var streamingToolUses: [ToolUseInfo] = []
+    /// Streaming state — isolated @Observable so chunk updates
+    /// never trigger ForEach diff on the messages array.
+    @ObservationIgnored let streaming = StreamingState()
 
     private(set) var turnUsage: TurnUsage?
     private(set) var sessionAgent: String = "claude"
@@ -89,6 +88,7 @@ final class ChatViewModel {
 
         messages.appendUser(trimmed)
         messages.appendStreamingPlaceholder()
+        streaming.begin()
         isWaiting = true
         turnUsage = nil
 
@@ -151,7 +151,7 @@ final class ChatViewModel {
             if replay {
                 messages.appendReplayAssistant(content)
             } else {
-                appendToStreaming(content)
+                streaming.appendText(content)
             }
 
         case .eventUserText(let sid, let content, let replay):
@@ -165,7 +165,7 @@ final class ChatViewModel {
             if replay {
                 messages.appendReplayToolCall(toolCallId: toolCallId, tool: tool, status: status)
             } else {
-                appendToolCall(toolCallId: toolCallId, tool: tool, status: status)
+                streaming.appendToolCall(id: toolCallId, tool: tool, status: status)
             }
 
         case .eventToolCallUpdate(let sid, let toolCallId, let status, _, let replay):
@@ -173,7 +173,7 @@ final class ChatViewModel {
             if replay {
                 messages.updateReplayToolCall(toolCallId: toolCallId, status: status)
             } else {
-                updateToolCall(toolCallId: toolCallId, status: status)
+                streaming.updateToolCall(id: toolCallId, status: status)
             }
 
         case .eventReplayEnd(let sid):
@@ -218,29 +218,11 @@ final class ChatViewModel {
         }
     }
 
-    // MARK: - Streaming (will move to StreamingState in #125)
-
-    private func appendToStreaming(_ text: String) {
-        streamingText += text
-    }
-
-    private func appendToolCall(toolCallId: String, tool: String, status: String) {
-        streamingToolUses.append(
-            ToolUseInfo(id: toolCallId, tool: tool, status: status)
-        )
-    }
-
-    private func updateToolCall(toolCallId: String, status: String?) {
-        if let toolIndex = streamingToolUses.firstIndex(where: { $0.id == toolCallId }),
-           let status {
-            streamingToolUses[toolIndex].status = status
-        }
-    }
+    // MARK: - Streaming lifecycle
 
     private func finalizeStreaming() {
-        messages.finalizeAssistant(text: streamingText, toolUses: streamingToolUses)
-        streamingText = ""
-        streamingToolUses = []
+        let result = streaming.finalize()
+        messages.finalizeAssistant(text: result.text, toolUses: result.toolUses)
         isWaiting = false
     }
 
@@ -250,9 +232,8 @@ final class ChatViewModel {
         if let lastIndex = messages.items.indices.last,
            messages.items[lastIndex].role == .assistant,
            messages.items[lastIndex].isStreaming {
-            messages.finalizeAssistant(text: streamingText, toolUses: streamingToolUses)
-            streamingText = ""
-            streamingToolUses = []
+            let result = streaming.finalize()
+            messages.finalizeAssistant(text: result.text, toolUses: result.toolUses)
         }
         messages.appendError(message)
         hasError = true
