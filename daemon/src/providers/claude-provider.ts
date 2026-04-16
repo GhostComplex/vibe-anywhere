@@ -3,9 +3,11 @@ import { EventEmitter } from 'node:events';
 import {
   query as sdkQuery,
   listSessions,
+  getSessionMessages,
   type Options,
   type Query,
   type SDKMessage,
+  type SDKAssistantMessage,
   type SDKPartialAssistantMessage,
   type SDKResultMessage,
   type SDKSystemMessage,
@@ -182,18 +184,65 @@ export class ClaudeProvider extends EventEmitter implements AgentClient {
 
   async loadSession(_agent: string, sessionId: string, cwd: string): Promise<void> {
     // Resume an existing session by creating a query with `resume`
-    await this.startResumedSession(sessionId, cwd, false);
+    await this.startResumedSession(sessionId, cwd);
     console.log(`[claude-sdk] Session loaded: ${sessionId}`);
   }
 
   async resumeHostSession(_agent: string, sessionId: string, cwd: string): Promise<{ sessionId: string }> {
-    await this.startResumedSession(sessionId, cwd, true);
+    // Step 1: Read history and emit as replay events
+    try {
+      const messages = await getSessionMessages(sessionId, { dir: cwd });
+      for (const msg of messages) {
+        if (msg.type === 'user') {
+          const content = (msg.message as { content?: unknown })?.content;
+          const text = typeof content === 'string' ? content : '';
+          if (text) {
+            this.emit('event', {
+              type: 'user_text',
+              sessionId,
+              content: text,
+              replay: true,
+            } satisfies AgentStreamEvent);
+          }
+        } else if (msg.type === 'assistant') {
+          const betaMsg = msg.message as { content?: Array<{ type: string; text?: string; id?: string; name?: string }> };
+          if (betaMsg.content) {
+            for (const block of betaMsg.content) {
+              if (block.type === 'text' && block.text) {
+                this.emit('event', {
+                  type: 'text',
+                  sessionId,
+                  content: block.text,
+                  replay: true,
+                } satisfies AgentStreamEvent);
+              } else if (block.type === 'tool_use') {
+                this.emit('event', {
+                  type: 'tool_call',
+                  sessionId,
+                  toolCallId: block.id ?? '',
+                  title: block.name ?? 'tool',
+                  status: 'completed',
+                  replay: true,
+                } satisfies AgentStreamEvent);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[claude-sdk] Failed to read session history: ${(err as Error).message}`);
+    }
+
+    // Step 2: Signal replay complete
     this.emit('event', { type: 'replay_end', sessionId } satisfies AgentStreamEvent);
+
+    // Step 3: Set up the resumed session for future prompts
+    await this.startResumedSession(sessionId, cwd);
     console.log(`[claude-sdk] Host session resumed: ${sessionId}`);
     return { sessionId };
   }
 
-  private async startResumedSession(sessionId: string, cwd: string, isReplay: boolean): Promise<void> {
+  private async startResumedSession(sessionId: string, cwd: string): Promise<void> {
     const input = createAsyncInput<SDKUserMessage>();
     const abortController = new AbortController();
 
@@ -217,7 +266,7 @@ export class ClaudeProvider extends EventEmitter implements AgentClient {
       pumpPromise: null as unknown as Promise<void>,
     };
 
-    session.pumpPromise = this.runPump(q, session, undefined, isReplay);
+    session.pumpPromise = this.runPump(q, session);
     this.sessions.set(sessionId, session);
   }
 
@@ -357,11 +406,10 @@ export class ClaudeProvider extends EventEmitter implements AgentClient {
     q: Query,
     session: ClaudeSession,
     resolveSessionId?: (id: string) => void,
-    isReplay?: boolean,
   ): Promise<void> {
     try {
       for await (const message of q) {
-        this.routeMessage(message, session, resolveSessionId, isReplay);
+        this.routeMessage(message, session, resolveSessionId);
         // Once we've resolved sessionId, clear the callback
         if (resolveSessionId && session.sessionId) {
           resolveSessionId = undefined;
@@ -383,7 +431,6 @@ export class ClaudeProvider extends EventEmitter implements AgentClient {
     message: SDKMessage,
     session: ClaudeSession,
     resolveSessionId?: (id: string) => void,
-    isReplay?: boolean,
   ): void {
     switch (message.type) {
       case 'system': {
@@ -398,14 +445,38 @@ export class ClaudeProvider extends EventEmitter implements AgentClient {
       case 'stream_event': {
         const partial = message as SDKPartialAssistantMessage;
         this.activePermissionSessionId = session.sessionId;
-        this.handleStreamEvent(partial, session.sessionId, isReplay);
+        this.handleStreamEvent(partial, session.sessionId);
+        break;
+      }
+
+      case 'assistant': {
+        // Full assistant message — can appear during resume pump
+        const assistantMsg = message as SDKAssistantMessage;
+        if (assistantMsg.message?.content) {
+          for (const block of assistantMsg.message.content) {
+            if (block.type === 'text') {
+              this.emit('event', {
+                type: 'text',
+                sessionId: session.sessionId,
+                content: block.text,
+              } satisfies AgentStreamEvent);
+            } else if (block.type === 'tool_use') {
+              this.emit('event', {
+                type: 'tool_call',
+                sessionId: session.sessionId,
+                toolCallId: block.id,
+                title: block.name,
+                status: 'completed',
+              } satisfies AgentStreamEvent);
+            }
+          }
+        }
         break;
       }
 
       case 'user': {
         const userMsg = message as SDKUserMessage | SDKUserMessageReplay;
         if ('isReplay' in userMsg && userMsg.isReplay) {
-          // Replay of previous user message
           const text = typeof userMsg.message.content === 'string'
             ? userMsg.message.content
             : '';
@@ -439,7 +510,6 @@ export class ClaudeProvider extends EventEmitter implements AgentClient {
       }
 
       default:
-        // Other message types (status, compact, task, etc.) — skip
         break;
     }
   }
@@ -447,10 +517,8 @@ export class ClaudeProvider extends EventEmitter implements AgentClient {
   private handleStreamEvent(
     partial: SDKPartialAssistantMessage,
     sessionId: string,
-    isReplay?: boolean,
   ): void {
     const event = partial.event;
-    const replay = isReplay || undefined;
 
     switch (event.type) {
       case 'content_block_delta': {
@@ -460,7 +528,6 @@ export class ClaudeProvider extends EventEmitter implements AgentClient {
             type: 'text',
             sessionId,
             content: delta.text,
-            replay,
           } satisfies AgentStreamEvent);
         } else if (delta.type === 'input_json_delta') {
           // Tool input streaming — emit as tool_call_update
@@ -478,7 +545,6 @@ export class ClaudeProvider extends EventEmitter implements AgentClient {
             toolCallId: block.id,
             title: block.name,
             status: 'running',
-            replay,
           } satisfies AgentStreamEvent);
         }
         break;
