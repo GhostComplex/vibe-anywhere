@@ -11,11 +11,8 @@ export interface Config {
   allowedDirs: string[];
   defaultAgent: string;
   claudePath?: string;
-  acpx: {
-    path: string;
-    permissionMode: 'prompt' | 'approve-all' | 'deny-all';
-    timeout: number;
-  };
+  permissionMode: 'prompt' | 'approve-all' | 'deny-all';
+  timeout: number;
 }
 
 const CONFIG_DIR = path.join(os.homedir(), '.vibe-anywhere');
@@ -41,11 +38,8 @@ function writeDefaultConfig(): Config {
     token: generateToken(),
     allowedDirs: ['~/projects'],
     defaultAgent: 'claude',
-    acpx: {
-      path: 'npx',
-      permissionMode: 'prompt',
-      timeout: 120,
-    },
+    permissionMode: 'prompt',
+    timeout: 120,
   };
 
   fs.writeFileSync(CONFIG_PATH, YAML.stringify(config), { mode: 0o600 });
@@ -68,14 +62,11 @@ function validate(raw: Record<string, unknown>): Config {
   const bind = typeof raw.bind === 'string' ? raw.bind : '0.0.0.0';
   const defaultAgent = typeof raw.defaultAgent === 'string' ? raw.defaultAgent : 'claude';
 
-  const rawAcpx = (raw.acpx ?? {}) as Record<string, unknown>;
-  const acpx = {
-    path: typeof rawAcpx.path === 'string' ? rawAcpx.path : 'npx',
-    permissionMode: (['prompt', 'approve-all', 'deny-all'].includes(rawAcpx.permissionMode as string)
-      ? rawAcpx.permissionMode as 'prompt' | 'approve-all' | 'deny-all'
-      : 'prompt'),
-    timeout: typeof rawAcpx.timeout === 'number' ? rawAcpx.timeout : 120,
-  };
+  const rawAcpx = (raw.acpx ?? raw) as Record<string, unknown>;
+  const permissionMode = (['prompt', 'approve-all', 'deny-all'].includes(rawAcpx.permissionMode as string)
+    ? rawAcpx.permissionMode as 'prompt' | 'approve-all' | 'deny-all'
+    : 'prompt');
+  const timeout = typeof rawAcpx.timeout === 'number' ? rawAcpx.timeout : 120;
 
   const allowedDirs = (raw.allowedDirs as string[]).map(
     (dir) => path.resolve(expandTilde(dir)),
@@ -83,7 +74,7 @@ function validate(raw: Record<string, unknown>): Config {
 
   const claudePath = typeof raw.claudePath === 'string' ? expandTilde(raw.claudePath) : undefined;
 
-  return { port, bind, token: raw.token, allowedDirs, defaultAgent, claudePath, acpx };
+  return { port, bind, token: raw.token, allowedDirs, defaultAgent, claudePath, permissionMode, timeout };
 }
 
 export function loadConfig(): Config {
