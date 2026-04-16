@@ -1,7 +1,7 @@
 import { loadConfig, rotateToken } from './config.js';
 import { startServer, type Server } from './server.js';
 import { SessionManager } from './sessions.js';
-import { ProviderRegistry, AcpProvider } from './providers/index.js';
+import { ProviderRegistry, AcpProvider, ClaudeProvider } from './providers/index.js';
 
 const VERSION = '0.2.0';
 
@@ -55,6 +55,13 @@ function main(): void {
     timeout: config.acpx.timeout,
   });
   registry.register(config.defaultAgent, acpProvider);
+
+  // Register Claude SDK provider as an alternative
+  const claudeProvider = new ClaudeProvider({
+    permissionMode: config.acpx.permissionMode === 'approve-all' ? 'bypassPermissions' : 'default',
+    timeout: config.acpx.timeout,
+  });
+  registry.register('claude-sdk', claudeProvider);
 
   const sessions = new SessionManager(config, registry);
 
