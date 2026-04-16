@@ -16,11 +16,8 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
     token: TEST_TOKEN,
     allowedDirs: ['/tmp'],
     defaultAgent: 'claude',
-    acpx: {
-      path: 'npx',
-      permissionMode: 'prompt',
-      timeout: 120,
-    },
+    permissionMode: 'prompt',
+    timeout: 120,
     ...overrides,
   };
 }

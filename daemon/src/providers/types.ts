@@ -24,11 +24,6 @@ export interface HostSessionInfo {
 }
 
 // ── AgentClient interface ──
-// TODO(#139): Remove `agent: string` parameter from methods once each provider
-// handles a single agent type. Currently kept for backward compat with AcpProvider
-// which manages multiple agent processes internally. The registry should be the
-// sole routing layer — callers do `registry.getOrThrow(agent).createSession(cwd)`
-// instead of passing `agent` through twice.
 
 export interface AgentClient extends EventEmitter {
   readonly provider: string;

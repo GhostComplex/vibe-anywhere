@@ -1,7 +1,7 @@
 import { loadConfig, rotateToken } from './config.js';
 import { startServer, type Server } from './server.js';
 import { SessionManager } from './sessions.js';
-import { ProviderRegistry, AcpProvider, ClaudeProvider, CopilotProvider } from './providers/index.js';
+import { ProviderRegistry, ClaudeProvider, CopilotProvider } from './providers/index.js';
 
 const VERSION = '0.2.0';
 
@@ -43,31 +43,23 @@ function main(): void {
   console.log(`  Bind: ${config.bind}`);
   console.log(`  Allowed dirs: ${config.allowedDirs.join(', ')}`);
   console.log(`  Default agent: ${config.defaultAgent}`);
-  console.log(`  ACP path: ${config.acpx.path}`);
-  console.log(`  Permission mode: ${config.acpx.permissionMode}`);
+  console.log(`  Permission mode: ${config.permissionMode}`);
 
   // Build provider registry
   const registry = new ProviderRegistry();
-  const acpProvider = new AcpProvider({
-    acpxPath: config.acpx.path,
-    claudePath: config.claudePath,
-    permissionMode: config.acpx.permissionMode,
-    timeout: config.acpx.timeout,
-  });
-  registry.register(config.defaultAgent, acpProvider);
 
-  // Register Claude SDK provider as an alternative
+  // Register Claude provider (direct SDK)
   const claudeProvider = new ClaudeProvider({
-    permissionMode: config.acpx.permissionMode === 'approve-all' ? 'bypassPermissions' : 'default',
-    timeout: config.acpx.timeout,
+    permissionMode: config.permissionMode === 'approve-all' ? 'bypassPermissions' : 'default',
+    timeout: config.timeout,
   });
-  registry.register('claude-sdk', claudeProvider);
+  registry.register(config.defaultAgent, claudeProvider);
 
   // Register Copilot provider
   const copilotProvider = new CopilotProvider({
     copilotPath: 'copilot',
-    permissionMode: config.acpx.permissionMode,
-    timeout: config.acpx.timeout,
+    permissionMode: config.permissionMode,
+    timeout: config.timeout,
   });
   registry.register('copilot', copilotProvider);
 
