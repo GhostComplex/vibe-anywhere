@@ -1,7 +1,7 @@
 import { loadConfig, rotateToken } from './config.js';
 import { startServer, type Server } from './server.js';
 import { SessionManager } from './sessions.js';
-import { ProviderRegistry, AcpProvider, ClaudeProvider } from './providers/index.js';
+import { ProviderRegistry, AcpProvider, ClaudeProvider, CopilotProvider } from './providers/index.js';
 
 const VERSION = '0.2.0';
 
@@ -62,6 +62,14 @@ function main(): void {
     timeout: config.acpx.timeout,
   });
   registry.register('claude-sdk', claudeProvider);
+
+  // Register Copilot provider
+  const copilotProvider = new CopilotProvider({
+    copilotPath: 'copilot',
+    permissionMode: config.acpx.permissionMode,
+    timeout: config.acpx.timeout,
+  });
+  registry.register('copilot', copilotProvider);
 
   const sessions = new SessionManager(config, registry);
 
